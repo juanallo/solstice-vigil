@@ -98,6 +98,22 @@ test.describe("narration speech", () => {
     expect(volumes.at(-1)).toBe(0.6);
   });
 
+  test("clicking a choice stops narration in progress", async ({ page }) => {
+    await startDemo(page);
+    await waitForScene(page);
+
+    const playButton = page.getByTestId("narration-play");
+    await playButton.click();
+    await expect(playButton).toHaveAttribute("aria-pressed", "true");
+
+    await clickFirstChoice(page);
+    await expect(playButton).toHaveAttribute("aria-pressed", "false");
+    await expect(playButton).toHaveAttribute("aria-label", "Listen to narration");
+
+    const volumes = await page.evaluate(() => (window as Window & { __svVolumes?: number[] }).__svVolumes ?? []);
+    expect(volumes.at(-1)).toBe(0.6);
+  });
+
   test("autoplay checkbox reads new scenes when enabled", async ({ page }) => {
     await startDemo(page);
     await waitForScene(page);

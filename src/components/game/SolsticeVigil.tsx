@@ -514,6 +514,7 @@ export default function SolsticeVigil() {
 
   const choose = useCallback(async (action: Action) => {
     unlockAudio();
+    stop();
     if (!scene || generating) return;
     const chosen = scene;
     // Subtle escalation: the world grows more extreme over time, so the vigil eventually ends.
@@ -564,7 +565,7 @@ export default function SolsticeVigil() {
       return;
     }
     await runTurn(next);
-  }, [scene, generating, state, runTurn, unlockAudio, transitionStatus]);
+  }, [scene, generating, state, runTurn, unlockAudio, transitionStatus, stop]);
 
   const interrupt = useCallback(() => { cancelRef.current = true; }, []);
   const restart = useCallback(() => {
