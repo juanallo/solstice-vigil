@@ -82,6 +82,13 @@ test.describe("persistence", () => {
         current: null,
         history: expect.any(Array),
       }),
+      encounter: expect.objectContaining({
+        codex: expect.any(Object),
+        memories: expect.any(Array),
+        lastRareCycle: expect.any(Number),
+        pendingDiscovery: null,
+        activeEncounterId: null,
+      }),
       pendingReveal: null,
       lastRevealCycle: expect.any(Number),
     });

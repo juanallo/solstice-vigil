@@ -679,6 +679,55 @@ body {
   margin-right: auto;
 }
 
+/* Encounter discovery */
+
+.sv-panel--encounter {
+  overflow: hidden;
+}
+
+.sv-encounter-hero {
+  height: 280px;
+  object-fit: cover;
+  object-position: center top;
+}
+
+.sv-encounter-cycle {
+  font-family: var(--font-ui);
+  font-size: 0.7rem;
+  letter-spacing: 0.2em;
+  text-transform: uppercase;
+  color: var(--sv-text-muted);
+  margin-bottom: 0.75rem;
+}
+
+.sv-encounter-title {
+  font-family: var(--font-title);
+  font-size: clamp(1.25rem, 4vw, 1.75rem);
+  font-weight: 400;
+  letter-spacing: 0.04em;
+  color: var(--sv-gold-bright);
+  line-height: 1.45;
+  margin-bottom: 0.75rem;
+}
+
+.sv-encounter-subtitle {
+  font-family: var(--font-body);
+  font-size: 0.95rem;
+  font-style: italic;
+  color: var(--sv-text-muted);
+  margin-bottom: 1.5rem;
+  line-height: 1.5;
+}
+
+.sv-wonders-count {
+  font-family: var(--font-ui);
+  font-size: 0.58rem;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: var(--sv-text-muted);
+  opacity: 0.75;
+}
+
 /* Responsive */
 
 @media (max-width: 720px) {

@@ -19,6 +19,14 @@ export interface GameStateFixture {
   };
   pendingReveal?: { id: string; cycle: number; kind: "become" | "known" } | null;
   lastRevealCycle?: number;
+  encounter?: {
+    codex: Record<string, { firstSeenCycle: number; timesSeen: number }>;
+    memories: { key: string; cycle: number; encounterId: string; label: string }[];
+    lastRareCycle: number;
+    pendingDiscovery: { id: string; isFirst: boolean; cycle: number } | null;
+    activeEncounterId: string | null;
+    nextEncounterId?: string;
+  };
 }
 
 function makeYangTurns(n: number): TurnRecord[] {
@@ -184,6 +192,66 @@ export const identityHeavyLightSave: GameStateFixture = {
   identity: { current: null, history: [] },
   pendingReveal: null,
   lastRevealCycle: -5,
+};
+
+export const clockmakerEncounterSave: GameStateFixture = {
+  cycle: 20,
+  turn: 40,
+  phase: "day",
+  balance: 0,
+  lastTone: "neutral",
+  stagnationStreak: 0,
+  lastArchetype: "Wanderer",
+  rawTurns: [],
+  storyMemory: { entities: [], beats: [] },
+  identity: { current: null, history: [] },
+  pendingReveal: null,
+  lastRevealCycle: -5,
+  encounter: {
+    codex: {},
+    memories: [],
+    lastRareCycle: -20,
+    pendingDiscovery: null,
+    activeEncounterId: null,
+    nextEncounterId: "clockmaker",
+  },
+};
+
+export const clockmakerRepeatEncounterSave: GameStateFixture = {
+  ...clockmakerEncounterSave,
+  encounter: {
+    codex: {
+      clockmaker: { firstSeenCycle: 10, timesSeen: 1 },
+    },
+    memories: [
+      {
+        key: "clockmaker-refused",
+        cycle: 10,
+        encounterId: "clockmaker",
+        label: "refused the Clockmaker's bargain",
+      },
+    ],
+    lastRareCycle: 10,
+    pendingDiscovery: null,
+    activeEncounterId: null,
+    nextEncounterId: "clockmaker",
+  },
+};
+
+export const gameOverWithWondersSave: GameStateFixture = {
+  ...nearGameOverDaySave,
+  cycle: 25,
+  identity: { current: "dream-shepherd", history: [] },
+  encounter: {
+    codex: {
+      clockmaker: { firstSeenCycle: 20, timesSeen: 1 },
+      "last-bird": { firstSeenCycle: 22, timesSeen: 1 },
+    },
+    memories: [],
+    lastRareCycle: 22,
+    pendingDiscovery: null,
+    activeEncounterId: null,
+  },
 };
 
 export const gameOverWithIdentitySave: GameStateFixture = {

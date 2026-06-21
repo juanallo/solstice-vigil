@@ -1,6 +1,18 @@
 import { useState, useEffect, useRef, useCallback } from "react";
+import { ENCOUNTERS, encounterKindLabel, encounterTitle, type EncounterId } from "../../data/encounters";
 import { IDENTITIES, identityTitle } from "../../data/identities";
 import { useGameAudio } from "../../hooks/useGameAudio";
+import {
+  buildRareEncounterPrompt,
+  dismissDiscovery,
+  getRareFallbackScene,
+  migrateEncounterFields,
+  prepareRareTurn,
+  recordEncounterOutcome,
+  selectRareEncounter,
+  wonderCount,
+  type EncounterState,
+} from "../../lib/encounters";
 import {
   migrateIdentityFields,
   updateIdentity,
@@ -35,10 +47,15 @@ const CACHE_NAME = "solstice-vigil", SAVE_KEY = "solstice-vigil-save";
 // 1 choice per phase; 2 choices complete one scored day
 const PHASE_LENGTH = 1, EXTREME = 100, START_BALANCE = 0, STAGNATION_LIMIT = 3, ESCALATION = 0.05;
 
-type Status = "title" | "checking" | "loading" | "playing" | "reveal" | "gameover" | "nosupport" | "error";
+type Status = "title" | "checking" | "loading" | "playing" | "reveal" | "discovery" | "gameover" | "nosupport" | "error";
 type GameOverCause = "day" | "night";
-interface Action { label: string; balanceShift: number; tone: Tone; }
-interface Scene { archetype: Archetype; narration: string; actions: Action[]; }
+interface Action {
+  label: string;
+  balanceShift: number;
+  tone: Tone;
+  memory?: { key: string; label: string };
+}
+interface Scene { archetype: Archetype; narration: string; actions: Action[]; encounterId?: EncounterId; }
 interface GameState {
   cycle: number; turn: number; phase: Phase; balance: number;
   lastTone: Tone | null; stagnationStreak: number; lastArchetype: Archetype | null;
@@ -47,6 +64,7 @@ interface GameState {
   identity: IdentityState;
   pendingReveal: PendingReveal | null;
   lastRevealCycle: number;
+  encounter: EncounterState;
 }
 
 const ARCHETYPES: Archetype[] = ["Threshold", "Wanderer", "Omen", "Temptation"];
@@ -77,6 +95,7 @@ const SYSTEM_PROMPT = [
 "Never invent or change state. Never narrate the wanderer's death or write 'Game over' — the engine decides endings. Keep each scene an open moment of choice.",
 "",
 "NPCs may sense the wanderer's bearing and past names poetically when given IDENTITY context — but never mention meters, tiers, or game systems.",
+"Rare encounters are mythic one-offs — specific characters, places, or events. When given a RARE ENCOUNTER, render that wonder faithfully. Never name rarity, odds, or mechanics. Weave the wanderer's history and prior meetings naturally.",
 SYSTEM_PROMPT_CONTINUITY,
 ].join("\n");
 
@@ -137,6 +156,7 @@ function freshState(): GameState {
     rawTurns: [],
     storyMemory: migrateStoryMemory({}),
     ...migrateIdentityFields({}),
+    ...migrateEncounterFields({}),
   };
 }
 function loadSave(): GameState | null {
@@ -159,6 +179,7 @@ function loadSave(): GameState | null {
       })),
       storyMemory: migrateStoryMemory(raw as Partial<GameState>),
       ...migrateIdentityFields(raw),
+      ...migrateEncounterFields(raw as Partial<GameState>),
     };
   } catch { return null; }
 }
@@ -322,22 +343,97 @@ export default function SolsticeVigil() {
     return scene;
   }, []);
 
-  const runTurn = useCallback(async (s: GameState) => {
+  const buildRareScene = useCallback((s: GameState, id: EncounterId): Scene => {
+    const fb = getRareFallbackScene(id, s.phase, s);
+    const actions = fb.actions.map((a) => ({
+      label: a.label,
+      balanceShift: clampShift("Wanderer", a.balanceShift),
+      tone: a.tone,
+      memory: a.memory,
+    }));
+    return {
+      archetype: "Wanderer",
+      narration: fb.narration,
+      actions: actions.slice(0, 3),
+      encounterId: id,
+    };
+  }, []);
+
+  const generateRareScene = useCallback(async (engine: any, s: GameState, id: EncounterId): Promise<Scene> => {
+    const userMsg = buildRareEncounterPrompt(s, id);
+    const arch: Archetype = "Wanderer";
+    const makeConvo = (extra: string) => engine.createConversation({ preface: { messages: [{ role: "system", content: SYSTEM_PROMPT + (extra ? "\n\n" + extra : "") }] } });
+    let raw = "";
+    try {
+      const convo = await makeConvo("");
+      const stream = convo.sendMessageStreaming(userMsg);
+      let ticks = 0;
+      for await (const chunk of stream) {
+        if (cancelRef.current) { try { convo.cancel(); } catch { /* ignore */ } break; }
+        for (const item of chunk.content || []) if (item.type === "text" || item.text) raw += item.text;
+        ticks++; if (ticks % 6 === 0) setStreamHint(pulse(ticks));
+      }
+    } catch { /* fall through */ }
+    setStreamHint("");
+    let scene = parseScene(raw, arch);
+    if (!scene) {
+      let raw2 = "";
+      try {
+        const convo2 = await makeConvo("IMPORTANT: reply with ONLY the JSON object. No prose. No code fences. No explanation.");
+        const stream2 = convo2.sendMessageStreaming(userMsg + "\n\nReply with ONLY the JSON object now.");
+        for await (const chunk of stream2) { if (cancelRef.current) { try { convo2.cancel(); } catch { /* ignore */ } break; } for (const item of chunk.content || []) if (item.type === "text" || item.text) raw2 += item.text; }
+      } catch { /* ignore */ }
+      scene = parseScene(raw2, arch);
+    }
+    if (!scene) return buildRareScene(s, id);
+    scene.actions = scene.actions.map((a) => ({ ...a, balanceShift: clampShift(arch, a.balanceShift) })).slice(0, 3);
+    if (scene.actions.length < 2) return buildRareScene(s, id);
+    scene.encounterId = id;
+    return scene;
+  }, [buildRareScene]);
+
+  const runTurn = useCallback(async (s: GameState, opts?: { regenerateActive?: boolean }) => {
     if (busyRef.current) return;
     busyRef.current = true;
     setGenerating(true);
     setScene(null);
     setStreamHint(pulse(0));
     try {
-      const arch = pickArchetype(s);
+      let working = s;
+      let rare = opts?.regenerateActive && s.encounter.activeEncounterId
+        ? { id: s.encounter.activeEncounterId, isFirst: s.encounter.pendingDiscovery?.isFirst ?? !s.encounter.codex[s.encounter.activeEncounterId] }
+        : selectRareEncounter(s);
+
+      if (rare && !opts?.regenerateActive) {
+        working = prepareRareTurn(s, rare);
+        setState(working);
+        saveState(working);
+      }
+
       let next: Scene;
+      if (rare) {
+        if (demoRef.current) {
+          await new Promise((r) => setTimeout(r, 450));
+          next = buildRareScene(working, rare.id);
+        } else {
+          const engine = engineRef.current || (await initEngine());
+          next = await generateRareScene(engine, working, rare.id);
+        }
+        setScene(next);
+        if (working.encounter.pendingDiscovery) {
+          setStatus("discovery");
+        }
+        return;
+      }
+
+      const arch = pickArchetype(working);
       if (demoRef.current) {
         await new Promise((r) => setTimeout(r, 450));
-        next = FALLBACK[arch](s.phase);
+        next = FALLBACK[arch](working.phase);
         next.actions = next.actions.map((a) => ({ ...a, balanceShift: clampShift(arch, a.balanceShift) })).slice(0, 3);
       } else {
         const engine = engineRef.current || (await initEngine());
-        next = await generateScene(engine, s, arch);
+        next = await generateScene(engine, working, arch);
       }
       next.archetype = arch;
       setScene(next);
@@ -349,7 +445,21 @@ export default function SolsticeVigil() {
       setGenerating(false);
       setStreamHint("");
     }
-  }, [generateScene, initEngine]);
+  }, [buildRareScene, generateRareScene, generateScene, initEngine]);
+  const resumePlay = useCallback(async (s: GameState) => {
+    if (s.pendingReveal) {
+      setStatus("reveal");
+      return;
+    }
+    if (s.encounter.pendingDiscovery) {
+      setStatus("discovery");
+      if (!scene) await runTurn(s, { regenerateActive: true });
+      return;
+    }
+    setStatus("playing");
+    await runTurn(s);
+  }, [runTurn, scene]);
+
   const start = useCallback(async (resume: boolean, useDemo = false) => {
     unlockAudio();
     setErrorMsg("");
@@ -361,16 +471,15 @@ export default function SolsticeVigil() {
       demoRef.current = true;
       setDemo(true);
       setState(s);
-      setStatus(s.pendingReveal ? "reveal" : "playing");
-      if (!s.pendingReveal) await runTurn(s);
+      await resumePlay(s);
       return;
     }
     if (!webGpuAvailable()) { setStatus("nosupport"); return; }
     setStatus("loading");
     setState(s);
-    try { await initEngine(); setStatus(s.pendingReveal ? "reveal" : "playing"); if (!s.pendingReveal) await runTurn(s); }
+    try { await initEngine(); await resumePlay(s); }
     catch (e: any) { setErrorMsg(e?.message || String(e)); setStatus("error"); }
-  }, [initEngine, runTurn, unlockAudio]);
+  }, [initEngine, resumePlay, unlockAudio]);
 
   const choose = useCallback(async (action: Action) => {
     unlockAudio();
@@ -405,6 +514,9 @@ export default function SolsticeVigil() {
       next.phase = flippingTo;
     }
     next = updateIdentity(next);
+    if (state.encounter.activeEncounterId) {
+      next = recordEncounterOutcome(next, state.encounter.activeEncounterId, action);
+    }
     const lost = Math.abs(next.balance) >= EXTREME;
     setState(next);
     saveState(next);
@@ -443,11 +555,15 @@ export default function SolsticeVigil() {
     const daysText = days < 1 ? "less than a day" : `${days} day${days === 1 ? "" : "s"}`;
     const cause = gameOverCause === "day" ? "the Long Day" : "the Hush of Night";
     const id = state.identity.current;
+    const wonders = wonderCount(state);
+    const wonderSuffix = wonders > 0
+      ? ` and witnessed ${wonders} rare wonder${wonders === 1 ? "" : "s"} along the way`
+      : "";
     const text = id
-      ? `I held the solstice vigil for ${daysText} as the ${identityTitle(id)} before ${cause} claimed me. How long can you hold the wheel?`
-      : `I held the solstice vigil for ${daysText} before ${cause} claimed me. How long can you hold the wheel?`;
+      ? `I held the solstice vigil for ${daysText} as the ${identityTitle(id)}${wonderSuffix} before ${cause} claimed me. How long can you hold the wheel?`
+      : `I held the solstice vigil for ${daysText}${wonderSuffix} before ${cause} claimed me. How long can you hold the wheel?`;
     await shareText(text);
-  }, [state.cycle, state.identity.current, gameOverCause, shareText]);
+  }, [state, gameOverCause, shareText]);
 
   const shareIdentity = useCallback(async () => {
     const reveal = state.pendingReveal;
@@ -459,14 +575,39 @@ export default function SolsticeVigil() {
     await shareText(text);
   }, [state.pendingReveal, shareText]);
 
+  const shareEncounter = useCallback(async () => {
+    const discovery = state.encounter.pendingDiscovery;
+    if (!discovery) return;
+    const title = encounterTitle(discovery.id);
+    const text = discovery.isFirst
+      ? `Cycle ${discovery.cycle} — I met ${title} in SOLSTICE VIGIL. A wonder seen by very few wanderers.`
+      : `Cycle ${discovery.cycle} — ${title} appeared again in SOLSTICE VIGIL.`;
+    await shareText(text);
+  }, [state.encounter.pendingDiscovery, shareText]);
+
   const continueFromReveal = useCallback(async () => {
     unlockAudio();
     const next = { ...state, pendingReveal: null };
     setState(next);
     saveState(next);
+    if (next.encounter.pendingDiscovery) {
+      setStatus("discovery");
+      if (!scene && next.encounter.activeEncounterId) {
+        await runTurn(next, { regenerateActive: true });
+      }
+      return;
+    }
     setStatus("playing");
     await runTurn(next);
-  }, [state, runTurn, unlockAudio]);
+  }, [state, runTurn, unlockAudio, scene]);
+
+  const continueFromDiscovery = useCallback(async () => {
+    unlockAudio();
+    const next = dismissDiscovery(state);
+    setState(next);
+    saveState(next);
+    setStatus("playing");
+  }, [state, unlockAudio]);
   const bg = worldBg(state.phase, state.balance);
   const meterPct = ((state.balance + EXTREME) / (2 * EXTREME)) * 100;
   const phaseTint = Math.abs(state.balance) / EXTREME;
@@ -477,6 +618,9 @@ export default function SolsticeVigil() {
     .filter((r) => r.id !== state.identity.current)
     .slice(-2)
     .map((r) => r.title);
+  const discovery = state.encounter.pendingDiscovery;
+  const discoveryDef = discovery ? ENCOUNTERS[discovery.id] : null;
+  const witnessedWonders = wonderCount(state);
   return (
     <main
       className="sv-root"
@@ -493,7 +637,7 @@ export default function SolsticeVigil() {
       >
         <span className="sv-audio-toggle__icon" aria-hidden="true">♪</span>
       </button>
-      <div className={`sv-container${status === "title" || status === "loading" || status === "nosupport" || status === "error" || status === "gameover" || status === "reveal" ? " sv-container--narrow" : ""}`}>
+      <div className={`sv-container${status === "title" || status === "loading" || status === "nosupport" || status === "error" || status === "gameover" || status === "reveal" || status === "discovery" ? " sv-container--narrow" : ""}`}>
         {status === "title" && (
           <div className="sv-screen-center">
             <div className="sv-panel sv-panel--landing">
@@ -673,11 +817,47 @@ export default function SolsticeVigil() {
             </div>
           </div>
         )}
+        {status === "discovery" && discovery && discoveryDef && (
+          <div className="sv-screen-center" data-testid="encounter-discovery-screen">
+            <div className="sv-panel sv-panel--encounter">
+              <img
+                src={discoveryDef.image}
+                alt=""
+                className="sv-panel-hero sv-encounter-hero"
+                draggable={false}
+              />
+              <div className="sv-panel-body">
+                <p className="sv-encounter-cycle" data-testid="encounter-discovery-cycle">Cycle {discovery.cycle}</p>
+                <h2 className="sv-encounter-title" data-testid="encounter-discovery-title">
+                  {discovery.isFirst
+                    ? <>First encounter with {discoveryDef.title}.</>
+                    : <>{discoveryDef.title} appears again.</>}
+                </h2>
+                <p className="sv-encounter-subtitle" data-testid="encounter-discovery-subtitle">
+                  {discovery.isFirst ? encounterKindLabel(discoveryDef.kind) : "The wheel remembers."}
+                </p>
+                <div className="sv-actions sv-actions--row">
+                  <button type="button" onClick={shareEncounter} className="sv-button-primary" data-testid="encounter-share">
+                    {shareCopied ? "Copied!" : "Share this moment"}
+                  </button>
+                  <button type="button" onClick={continueFromDiscovery} className="sv-button-secondary" data-testid="encounter-continue">
+                    Continue the vigil
+                  </button>
+                </div>
+              </div>
+            </div>
+          </div>
+        )}
         {status === "playing" && (
           <div className={`game-shell game-shell--${state.phase}`} style={{ "--w1": bg.c1, "--w2": bg.c2, "--w3": bg.c3 } as React.CSSProperties}>
             <div className="sv-hud">
               <div className="sv-hud__left">
                 <span className="sv-meta" data-testid="day-count">Day {state.cycle + 1}</span>
+                {witnessedWonders > 0 && (
+                  <span className="sv-wonders-count" data-testid="wonders-count">
+                    {witnessedWonders} wonder{witnessedWonders === 1 ? "" : "s"} witnessed
+                  </span>
+                )}
               </div>
               <span className="sv-hud__phase" data-testid="phase-label">
                 {state.phase === "day" ? "☀ Long Day" : "☾ Hush of Night"}
