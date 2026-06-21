@@ -4,6 +4,7 @@ node_modules/
 # Build outputs
 dist/
 build/
+.astro/
 
 # Test artifacts
 coverage/
@@ -38,3 +39,5 @@ pnpm-debug.log*
 /prototype/playwright-report/
 /prototype/playwright/.cache/
 /prototype/.playwright-mcp/
+
+/tmp/

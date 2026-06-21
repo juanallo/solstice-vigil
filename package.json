@@ -1,9 +1,12 @@
 {
   "name": "solstice-vigil",
   "version": "1.0.0",
-  "description": "",
-  "main": "index.js",
+  "description": "SOLSTICE VIGIL — a solo narrative RPG about holding the balance between day and night.",
+  "type": "module",
   "scripts": {
+    "dev": "astro dev",
+    "build": "astro build",
+    "preview": "astro preview",
     "test": "npm run test:e2e",
     "test:e2e": "playwright test",
     "test:e2e:ui": "playwright test --ui",
@@ -12,14 +15,21 @@
   "keywords": [],
   "author": "",
   "license": "ISC",
-  "type": "module",
   "dependencies": {
+    "@astrojs/react": "^4.4.2",
+    "astro": "^5.16.6",
     "playwright": "^1.61.0",
+    "react": "^19.2.0",
+    "react-dom": "^19.2.0",
     "sharp": "^0.35.2"
   },
   "devDependencies": {
     "@playwright/test": "^1.61.0",
+    "@tailwindcss/vite": "^4.1.17",
     "@types/node": "^26.0.0",
+    "@types/react": "^19.2.7",
+    "@types/react-dom": "^19.2.3",
+    "tailwindcss": "^4.1.17",
     "typescript": "^5.9.3"
   }
 }

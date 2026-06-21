@@ -1,6 +1,6 @@
 # Playwright E2E Tests
 
-These tests validate Solstice Vigil behavior before and after the Astro migration.
+These tests validate Solstice Vigil behavior on the root Astro site.
 
 ## Run locally
 
@@ -8,15 +8,15 @@ These tests validate Solstice Vigil behavior before and after the Astro migratio
 npm run test:e2e
 ```
 
-This starts the prototype dev server at `http://127.0.0.1:50426` and runs the demo-mode suite.
+This starts the Astro dev server at `http://127.0.0.1:4321` and runs the demo-mode suite.
 
-## Target another server (Astro preview)
+## Target another server
 
 Point the same suite at a different build by setting environment variables:
 
 ```bash
 PLAYWRIGHT_BASE_URL=http://127.0.0.1:4321 \
-PLAYWRIGHT_WEB_SERVER_COMMAND="npm run preview --prefix astro" \
+PLAYWRIGHT_WEB_SERVER_COMMAND="npm run preview -- --host 127.0.0.1 --port 4321" \
 npm run test:e2e
 ```
 
@@ -28,17 +28,27 @@ PLAYWRIGHT_BASE_URL=http://127.0.0.1:4321 \
 npm run test:e2e
 ```
 
+## Validate the prototype reference app
+
+The frozen prototype under `prototype/` can still be checked separately:
+
+```bash
+PLAYWRIGHT_BASE_URL=http://127.0.0.1:50426 \
+PLAYWRIGHT_WEB_SERVER_COMMAND="cd prototype && bun run dev" \
+npm run test:e2e
+```
+
 ## Environment variables
 
 | Variable | Default | Purpose |
 | --- | --- | --- |
-| `PLAYWRIGHT_BASE_URL` | `http://127.0.0.1:50426` | Base URL for navigation |
-| `PLAYWRIGHT_WEB_SERVER_COMMAND` | `cd prototype && bun run build && PORT=50426 NODE_ENV=production bun run server.ts` | Command to start the app under test |
+| `PLAYWRIGHT_BASE_URL` | `http://127.0.0.1:4321` | Base URL for navigation |
+| `PLAYWRIGHT_WEB_SERVER_COMMAND` | `npm run dev -- --host 127.0.0.1 --port 4321` | Command to start the app under test |
 | `PLAYWRIGHT_SKIP_WEBSERVER` | unset | Skip auto-starting a web server |
 
 ## Test query params
 
-The prototype supports optional query params used by the suite:
+The game supports optional query params used by the suite:
 
 - `?demo=1` — start in demo mode without AI download
 - `?nowebgpu=1` — force the no-WebGPU fallback screen for CI
