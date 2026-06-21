@@ -390,7 +390,7 @@ export default function SolsticeVigil() {
       <div className="relative z-10 max-w-2xl mx-auto px-5 py-8 min-h-screen flex flex-col">
         {status === "title" && (
           <div className="flex-1 flex flex-col items-center justify-center text-center">
-            <div className="text-7xl mb-4 select-none">{state.phase === "day" ? "☀" : "☾"}</div>
+            <img src="/logo.png" alt="" width={128} height={128} className="mb-4 select-none w-32 h-32" draggable={false} />
             <h1 className="text-5xl font-bold tracking-tight">SOLSTICE VIGIL</h1>
             <p className="mt-3 opacity-80 italic">hold the balance · the longest day, the endless turn</p>
             <p className="mt-6 max-w-md text-sm leading-relaxed opacity-85">
@@ -439,7 +439,7 @@ export default function SolsticeVigil() {
         )}
         {status === "gameover" && (
           <div className="flex-1 flex flex-col items-center justify-center text-center" data-testid="gameover-screen">
-            <div className="text-7xl mb-6 select-none animate-pulse">{gameOverCause === "day" ? "☀" : "☾"}</div>
+            <img src="/logo.png" alt="" width={128} height={128} className="mb-6 select-none w-32 h-32 animate-pulse" draggable={false} />
             <h2 className="text-3xl font-bold mb-4">the vigil ends</h2>
             <p className="max-w-md leading-relaxed opacity-90">{gameOverCause === "day"
               ? "The Long Day claims you. The sun will not set, and you wander into the endless light until you are no more. The wheel has stopped."
