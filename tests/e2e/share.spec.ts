@@ -1,6 +1,7 @@
 import { test, expect } from "@playwright/test";
 import {
   clickStrongestYangChoice,
+  gameOverWithIdentitySave,
   nearGameOverDaySave,
   seedSave,
   waitForScene,
@@ -27,5 +28,26 @@ test.describe("share", () => {
     const clipboardText = await page.evaluate(async () => navigator.clipboard.readText());
     expect(clipboardText).toMatch(/held the solstice vigil/i);
     expect(clipboardText).toMatch(/solstice-vigil-jalloron\.zocomputer\.io/);
+  });
+
+  test("share includes identity title when the wanderer had a name", async ({ page, context }) => {
+    await context.grantPermissions(["clipboard-read", "clipboard-write"]);
+    await seedSave(page, gameOverWithIdentitySave);
+    await page.goto("/?demo=1");
+    await page.getByRole("button", { name: "Continue the vigil" }).click();
+    await waitForScene(page);
+    await clickStrongestYangChoice(page);
+
+    await expect(page.getByTestId("gameover-screen")).toBeVisible();
+
+    await page.evaluate(() => {
+      Object.defineProperty(navigator, "share", { configurable: true, value: undefined });
+    });
+
+    await page.getByRole("button", { name: "Share your vigil" }).click();
+    await expect(page.getByRole("button", { name: "Copied!" })).toBeVisible();
+
+    const clipboardText = await page.evaluate(async () => navigator.clipboard.readText());
+    expect(clipboardText).toMatch(/Flame Herald/i);
   });
 });

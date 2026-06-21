@@ -74,6 +74,12 @@ test.describe("persistence", () => {
       turn: expect.any(Number),
       phase: expect.stringMatching(/day|night/),
       balance: expect.any(Number),
+      identity: expect.objectContaining({
+        current: null,
+        history: expect.any(Array),
+      }),
+      pendingReveal: null,
+      lastRevealCycle: expect.any(Number),
     });
   });
 });

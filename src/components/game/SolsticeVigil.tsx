@@ -1,4 +1,12 @@
 import { useState, useEffect, useRef, useCallback } from "react";
+import { IDENTITIES, identityTitle } from "../../data/identities";
+import {
+  buildIdentityPromptBlock,
+  migrateIdentityFields,
+  updateIdentity,
+  type IdentityState,
+  type PendingReveal,
+} from "../../lib/identity";
 
 // SOLSTICE VIGIL — a never-ending solo RPG.
 // On-device LLM (Google AI Edge LiteRT-LM, Gemma 4 E2B) renders each scene.
@@ -14,13 +22,20 @@ const PHASE_LENGTH = 1, EXTREME = 100, START_BALANCE = 0, STAGNATION_LIMIT = 3, 
 
 type Phase = "day" | "night";
 type Archetype = "Threshold" | "Wanderer" | "Omen" | "Temptation" | "Lurch";
-type Status = "title" | "checking" | "loading" | "playing" | "gameover" | "nosupport" | "error";
+type Status = "title" | "checking" | "loading" | "playing" | "reveal" | "gameover" | "nosupport" | "error";
 type Tone = "yang" | "yin" | "neutral";
 type GameOverCause = "day" | "night";
 interface Action { label: string; balanceShift: number; tone: Tone; }
 interface Scene { archetype: Archetype; narration: string; actions: Action[]; }
-interface TurnRecord { archetype: Archetype; phase: Phase; narration: string; chosenLabel: string; balanceShift: number; }
-interface GameState { cycle: number; turn: number; phase: Phase; balance: number; lastTone: Tone | null; stagnationStreak: number; lastArchetype: Archetype | null; history: string[]; rawTurns: TurnRecord[]; }
+interface TurnRecord { archetype: Archetype; phase: Phase; narration: string; chosenLabel: string; balanceShift: number; tone: Tone; }
+interface GameState {
+  cycle: number; turn: number; phase: Phase; balance: number;
+  lastTone: Tone | null; stagnationStreak: number; lastArchetype: Archetype | null;
+  history: string[]; rawTurns: TurnRecord[];
+  identity: IdentityState;
+  pendingReveal: PendingReveal | null;
+  lastRevealCycle: number;
+}
 
 const ARCHETYPES: Archetype[] = ["Threshold", "Wanderer", "Omen", "Temptation"];
 const SHIFT_BOUNDS: Record<string, number> = { Threshold: 45, Temptation: 30, Wanderer: 35, Omen: 10, Lurch: 45 };
@@ -48,6 +63,8 @@ const SYSTEM_PROMPT = [
 "Lurch: a forced crisis — actions that each shove hard (±30 to ±45), breaking the stagnation.",
 "",
 "Never invent or change state. Never narrate the wanderer's death or write 'Game over' — the engine decides endings. Keep each scene an open moment of choice.",
+"",
+"NPCs may sense the wanderer's bearing and past names poetically when given IDENTITY context — but never mention meters, tiers, or game systems.",
 ].join("\n");
 
 const FALLBACK: Record<Archetype, (p: Phase) => Scene> = {
@@ -101,10 +118,35 @@ const FALLBACK: Record<Archetype, (p: Phase) => Scene> = {
 function clamp(v: number, lo: number, hi: number) { return Math.max(lo, Math.min(hi, v)); }
 function clampShift(arch: string, v: number) { return clamp(Math.round(v), -SHIFT_BOUNDS[arch], SHIFT_BOUNDS[arch]); }
 function freshState(): GameState {
-  return { cycle: 0, turn: 0, phase: "day", balance: START_BALANCE, lastTone: null, stagnationStreak: 0, lastArchetype: null, history: [], rawTurns: [] };
+  return {
+    cycle: 0, turn: 0, phase: "day", balance: START_BALANCE,
+    lastTone: null, stagnationStreak: 0, lastArchetype: null,
+    history: [], rawTurns: [],
+    ...migrateIdentityFields({}),
+  };
 }
 function loadSave(): GameState | null {
-  try { const r = localStorage.getItem(SAVE_KEY); return r ? (JSON.parse(r) as GameState) : null; } catch { return null; }
+  try {
+    const r = localStorage.getItem(SAVE_KEY);
+    if (!r) return null;
+    const raw = JSON.parse(r) as Partial<GameState>;
+    if (typeof raw.balance !== "number") return null;
+    return {
+      cycle: raw.cycle ?? 0,
+      turn: raw.turn ?? 0,
+      phase: raw.phase ?? "day",
+      balance: raw.balance,
+      lastTone: raw.lastTone ?? null,
+      stagnationStreak: raw.stagnationStreak ?? 0,
+      lastArchetype: raw.lastArchetype ?? null,
+      history: raw.history ?? [],
+      rawTurns: (raw.rawTurns ?? []).map((t) => ({
+        ...t,
+        tone: t.tone ?? (t.balanceShift < 0 ? "yang" : t.balanceShift > 0 ? "yin" : "neutral"),
+      })),
+      ...migrateIdentityFields(raw),
+    };
+  } catch { return null; }
 }
 function saveState(s: GameState) { try { localStorage.setItem(SAVE_KEY, JSON.stringify(s)); } catch { /* ignore */ } }
 function clearSave() { try { localStorage.removeItem(SAVE_KEY); } catch { /* ignore */ } }
@@ -120,14 +162,16 @@ function buildTurnPrompt(s: GameState, arch: Archetype) {
   const recent = s.rawTurns.slice(-HISTORY_TURNS)
     .map((t) => `(${t.phase}) ${t.narration.slice(0, 80)} -> chose: "${t.chosenLabel}" (${t.balanceShift > 0 ? "+" : ""}${t.balanceShift})`)
     .join("\n");
+  const identityBlock = buildIdentityPromptBlock(s);
   return [
     `STATE — Day ${s.cycle + 1}. Phase: ${s.phase === "day" ? "DAY (the Long Day)" : "NIGHT (the Hush of Night)"}.`,
     `The world ${balanceDescriptor(s.balance)} (balance ${s.balance}).`,
     `Days survived so far: ${s.cycle}.`,
     recent ? `RECENT TURNS —\n${recent}` : "RECENT TURNS — (the vigil has just begun)",
+    identityBlock ?? "",
     `TASK — Render a ${arch} encounter for the current ${s.phase.toUpperCase()} phase.`,
     `Output the JSON object now.`,
-  ].join("\n");
+  ].filter(Boolean).join("\n");
 }
 function pickArchetype(s: GameState): Archetype {
   if (s.stagnationStreak >= STAGNATION_LIMIT) return "Lurch";
@@ -192,12 +236,6 @@ async function isValidModelBlob(blob: Blob): Promise<boolean> {
   const buf = new Uint8Array(await blob.slice(0, 8).arrayBuffer());
   for (let i = 0; i < MODEL_MAGIC.length; i++) if (buf[i] !== MODEL_MAGIC.charCodeAt(i)) return false;
   return true;
-}
-
-function toneIcon(tone: Tone) {
-  if (tone === "yang") return "☀";
-  if (tone === "yin") return "☾";
-  return "⏳";
 }
 
 export default function SolsticeVigil() {
@@ -329,14 +367,14 @@ export default function SolsticeVigil() {
       demoRef.current = true;
       setDemo(true);
       setState(s);
-      setStatus("playing");
-      await runTurn(s);
+      setStatus(s.pendingReveal ? "reveal" : "playing");
+      if (!s.pendingReveal) await runTurn(s);
       return;
     }
     if (!webGpuAvailable()) { setStatus("nosupport"); return; }
     setStatus("loading");
     setState(s);
-    try { await initEngine(); setStatus("playing"); await runTurn(s); }
+    try { await initEngine(); setStatus(s.pendingReveal ? "reveal" : "playing"); if (!s.pendingReveal) await runTurn(s); }
     catch (e: any) { setErrorMsg(e?.message || String(e)); setStatus("error"); }
   }, [initEngine, runTurn]);
 
@@ -346,7 +384,7 @@ export default function SolsticeVigil() {
     // Subtle escalation: the world grows more extreme over time, so the vigil eventually ends.
     const esc = 1 + ESCALATION * Math.floor(state.turn / 10);
     const newBalance = clamp(state.balance + Math.round(action.balanceShift * esc), -EXTREME, EXTREME);
-    const newRaw: TurnRecord = { archetype: chosen.archetype, phase: state.phase, narration: chosen.narration, chosenLabel: action.label, balanceShift: action.balanceShift };
+    const newRaw: TurnRecord = { archetype: chosen.archetype, phase: state.phase, narration: chosen.narration, chosenLabel: action.label, balanceShift: action.balanceShift, tone: action.tone };
     let next: GameState = { ...state, turn: state.turn + 1, balance: newBalance, lastArchetype: chosen.archetype, rawTurns: [...state.rawTurns, newRaw].slice(-(HISTORY_TURNS + 2)), history: [...state.history, `${state.phase}: ${action.label}`].slice(-12) };
     if (chosen.archetype === "Lurch") next.stagnationStreak = 0;
     else if (action.tone === "neutral") next.stagnationStreak = Math.max(0, state.stagnationStreak - 1);
@@ -358,6 +396,7 @@ export default function SolsticeVigil() {
       if (flippingTo === "day") { next.cycle = next.cycle + 1; }
       next.phase = flippingTo;
     }
+    next = updateIdentity(next);
     const lost = Math.abs(next.balance) >= EXTREME;
     setState(next);
     saveState(next);
@@ -369,32 +408,69 @@ export default function SolsticeVigil() {
       setStatus("gameover");
       return;
     }
+    if (next.pendingReveal) {
+      setStatus("reveal");
+      return;
+    }
     await runTurn(next);
   }, [scene, generating, state, runTurn]);
 
   const interrupt = useCallback(() => { cancelRef.current = true; }, []);
   const restart = useCallback(() => { clearSave(); setHasSave(false); setState(freshState()); setScene(null); setGameOverCause(null); setShareCopied(false); setStatus("title"); }, []);
-  const shareVigil = useCallback(async () => {
-    const days = state.cycle;
-    const daysText = days < 1 ? "less than a day" : `${days} day${days === 1 ? "" : "s"}`;
-    const cause = gameOverCause === "day" ? "the Long Day" : "the Hush of Night";
-    const text = `I held the solstice vigil for ${daysText} before ${cause} claimed me. How long can you hold the wheel?`;
+
+  const shareText = useCallback(async (text: string) => {
     const url = "https://solstice-vigil-jalloron.zocomputer.io";
     try {
       if (navigator.share) { await navigator.share({ title: "Solstice Vigil", text, url }); return; }
     } catch { /* user cancelled or share unavailable — fall through to clipboard */ }
     try { await navigator.clipboard.writeText(`${text} ${url}`); setShareCopied(true); setTimeout(() => setShareCopied(false), 2000); }
     catch { /* ignore */ }
-  }, [state.cycle, gameOverCause]);
+  }, []);
+
+  const shareVigil = useCallback(async () => {
+    const days = state.cycle;
+    const daysText = days < 1 ? "less than a day" : `${days} day${days === 1 ? "" : "s"}`;
+    const cause = gameOverCause === "day" ? "the Long Day" : "the Hush of Night";
+    const id = state.identity.current;
+    const text = id
+      ? `I held the solstice vigil for ${daysText} as the ${identityTitle(id)} before ${cause} claimed me. How long can you hold the wheel?`
+      : `I held the solstice vigil for ${daysText} before ${cause} claimed me. How long can you hold the wheel?`;
+    await shareText(text);
+  }, [state.cycle, state.identity.current, gameOverCause, shareText]);
+
+  const shareIdentity = useCallback(async () => {
+    const reveal = state.pendingReveal;
+    if (!reveal) return;
+    const title = identityTitle(reveal.id);
+    const text = reveal.kind === "become"
+      ? `Cycle ${reveal.cycle} — I have become a ${title} in SOLSTICE VIGIL.`
+      : `Cycle ${reveal.cycle} — The world now knows me as the ${title} in SOLSTICE VIGIL.`;
+    await shareText(text);
+  }, [state.pendingReveal, shareText]);
+
+  const continueFromReveal = useCallback(async () => {
+    const next = { ...state, pendingReveal: null };
+    setState(next);
+    saveState(next);
+    setStatus("playing");
+    await runTurn(next);
+  }, [state, runTurn]);
   const bg = worldBg(state.phase, state.balance);
   const meterPct = ((state.balance + EXTREME) / (2 * EXTREME)) * 100;
   const phaseTint = Math.abs(state.balance) / EXTREME;
+  const reveal = state.pendingReveal;
+  const revealDef = reveal ? IDENTITIES[reveal.id] : null;
+  const currentIdentity = state.identity.current ? IDENTITIES[state.identity.current] : null;
+  const pastIdentityTitles = state.identity.history
+    .filter((r) => r.id !== state.identity.current)
+    .slice(-2)
+    .map((r) => r.title);
   return (
     <main
       className="sv-root"
       style={{ "--phase-tint": phaseTint } as React.CSSProperties}
     >
-      <div className={`sv-container${status === "title" || status === "loading" || status === "nosupport" || status === "error" || status === "gameover" ? " sv-container--narrow" : ""}`}>
+      <div className={`sv-container${status === "title" || status === "loading" || status === "nosupport" || status === "error" || status === "gameover" || status === "reveal" ? " sv-container--narrow" : ""}`}>
         {status === "title" && (
           <div className="sv-screen-center">
             <div className="sv-panel sv-panel--landing">
@@ -405,7 +481,9 @@ export default function SolsticeVigil() {
                 draggable={false}
               />
               <div className="sv-panel-body">
-                <div className="sv-divider" aria-hidden="true">☀</div>
+                <div className="sv-divider" aria-hidden="true">
+                  <img src="/logo.png" alt="" className="sv-logo" draggable={false} />
+                </div>
                 <h1 className="sv-title">SOLSTICE VIGIL</h1>
                 <p className="sv-subtitle">hold the balance · the longest day, the endless turn</p>
                 <p className="sv-body" style={{ marginTop: "1.5rem", maxWidth: "28rem", marginLeft: "auto", marginRight: "auto" }}>
@@ -500,7 +578,7 @@ export default function SolsticeVigil() {
         {status === "gameover" && (
           <div className="sv-screen-center" data-testid="gameover-screen">
             <div className="sv-panel">
-              <div className="sv-loading-sigil" aria-hidden="true">{gameOverCause === "day" ? "☀" : "☾"}</div>
+              <img src="/logo.png" alt="" className="sv-logo sv-logo--sigil" draggable={false} aria-hidden="true" />
               <h2 className="sv-heading">the vigil ends</h2>
               <p className="sv-body" style={{ marginTop: "1rem", maxWidth: "28rem", marginLeft: "auto", marginRight: "auto" }}>
                 {gameOverCause === "day"
@@ -511,6 +589,28 @@ export default function SolsticeVigil() {
                 You held the vigil for{" "}
                 <strong>{state.cycle < 1 ? "less than a day" : `${state.cycle} day${state.cycle === 1 ? "" : "s"}`}</strong>.
               </p>
+              {currentIdentity ? (
+                <div className="sv-gameover-identity" data-testid="gameover-identity">
+                  <img
+                    src={currentIdentity.image}
+                    alt=""
+                    className="sv-gameover-identity__image"
+                    draggable={false}
+                  />
+                  <p className="sv-gameover-identity__title">
+                    The world knew you as the {currentIdentity.title}.
+                  </p>
+                  {pastIdentityTitles.length > 0 && (
+                    <p className="sv-gameover-identity__past">
+                      Once also: {pastIdentityTitles.join(", ")}
+                    </p>
+                  )}
+                </div>
+              ) : (
+                <p className="sv-note sv-gameover-identity-none" data-testid="gameover-identity-none" style={{ marginTop: "1.25rem" }}>
+                  You had not yet taken a name.
+                </p>
+              )}
               <div className="sv-actions sv-actions--row">
                 <button type="button" onClick={shareVigil} className="sv-button-primary">
                   {shareCopied ? "Copied!" : "Share your vigil"}
@@ -522,14 +622,54 @@ export default function SolsticeVigil() {
             </div>
           </div>
         )}
+        {status === "reveal" && reveal && revealDef && (
+          <div className="sv-screen-center" data-testid="identity-reveal-screen">
+            <div className="sv-panel sv-panel--identity">
+              <img
+                src={revealDef.image}
+                alt=""
+                className="sv-panel-hero sv-identity-hero"
+                draggable={false}
+              />
+              <div className="sv-panel-body">
+                <p className="sv-identity-cycle" data-testid="identity-reveal-cycle">Cycle {reveal.cycle}</p>
+                <h2 className="sv-identity-title" data-testid="identity-reveal-title">
+                  {reveal.kind === "become"
+                    ? <>You have become a {revealDef.title}.</>
+                    : <>The world now knows you as the {revealDef.title}.</>}
+                </h2>
+                <div className="sv-actions sv-actions--row">
+                  <button type="button" onClick={shareIdentity} className="sv-button-primary">
+                    {shareCopied ? "Copied!" : "Share this moment"}
+                  </button>
+                  <button type="button" onClick={continueFromReveal} className="sv-button-secondary" data-testid="identity-continue">
+                    Continue the vigil
+                  </button>
+                </div>
+              </div>
+            </div>
+          </div>
+        )}
         {status === "playing" && (
           <div className={`game-shell game-shell--${state.phase}`} style={{ "--w1": bg.c1, "--w2": bg.c2, "--w3": bg.c3 } as React.CSSProperties}>
             <div className="sv-hud">
-              <span className="sv-meta" data-testid="day-count">Day {state.cycle + 1}</span>
+              <div className="sv-hud__left">
+                <span className="sv-meta" data-testid="day-count">Day {state.cycle + 1}</span>
+              </div>
               <span className="sv-hud__phase" data-testid="phase-label">
                 {state.phase === "day" ? "☀ Long Day" : "☾ Hush of Night"}
               </span>
-              <span aria-hidden="true">&nbsp;</span>
+              {currentIdentity ? (
+                <div
+                  className={`sv-hud__right sv-identity-badge sv-identity-badge--${currentIdentity.alignment}`}
+                  data-testid="identity-badge"
+                >
+                  <img src={currentIdentity.image} alt="" className="sv-identity-portrait" draggable={false} />
+                  <span className="sv-identity-badge__title" data-testid="identity-label">{currentIdentity.title}</span>
+                </div>
+              ) : (
+                <span aria-hidden="true">&nbsp;</span>
+              )}
             </div>
             <div className="sv-balance-labels">
               <span className="sv-meta">Day</span>
@@ -584,8 +724,7 @@ export default function SolsticeVigil() {
                         disabled={generating}
                         className="sv-choice-button"
                       >
-                        <span className="sv-choice-icon" aria-hidden="true">{toneIcon(a.tone)}</span>
-                        <span>{a.label}</span>
+                        {a.label}
                       </button>
                     ))}
                   </div>

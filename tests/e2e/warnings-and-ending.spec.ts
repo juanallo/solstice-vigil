@@ -4,6 +4,7 @@ import {
   clickFirstChoice,
   clickStrongestYangChoice,
   clickStrongestYinChoice,
+  gameOverWithIdentitySave,
   getSave,
   longDayWarningSave,
   hushWarningSave,
@@ -61,6 +62,22 @@ test.describe("warnings and ending", () => {
     await expect(page.getByTestId("gameover-screen")).toBeVisible();
     await expect(page.getByRole("heading", { name: "the vigil ends" })).toBeVisible();
     await expect(page.getByText(/The Long Day claims you/i)).toBeVisible();
+    await expect(page.getByTestId("gameover-identity-none")).toBeVisible();
+  });
+
+  test("game over shows identity when the wanderer had a title", async ({ page }) => {
+    await seedSave(page, gameOverWithIdentitySave);
+    await page.goto("/?demo=1");
+    await page.getByRole("button", { name: "Continue the vigil" }).click();
+    await waitForScene(page);
+
+    await clickStrongestYangChoice(page);
+
+    await expect(page.getByTestId("gameover-screen")).toBeVisible();
+    await expect(page.getByTestId("gameover-identity")).toBeVisible();
+    await expect(page.getByText(/The world knew you as the Flame Herald/i)).toBeVisible();
+    await expect(page.getByText(/Once also: Ember Saint/i)).toBeVisible();
+    await expect(page.locator(".sv-gameover-identity__image")).toBeVisible();
   });
 
   test("extreme hush choice ends the vigil", async ({ page }) => {

@@ -11,6 +11,23 @@ export interface GameStateFixture {
   lastArchetype: string | null;
   history: string[];
   rawTurns: unknown[];
+  identity?: {
+    current: string | null;
+    history: { cycle: number; id: string; title: string }[];
+  };
+  pendingReveal?: { id: string; cycle: number; kind: "become" | "known" } | null;
+  lastRevealCycle?: number;
+}
+
+function makeYangTurns(n: number) {
+  return Array.from({ length: n }, () => ({
+    archetype: "Temptation",
+    phase: "day" as const,
+    narration: "A brazier burns without fuel.",
+    chosenLabel: "Feed the brazier, embrace the blaze",
+    balanceShift: -28,
+    tone: "yang" as const,
+  }));
 }
 
 export const freshSave: GameStateFixture = {
@@ -23,6 +40,9 @@ export const freshSave: GameStateFixture = {
   lastArchetype: null,
   history: [],
   rawTurns: [],
+  identity: { current: null, history: [] },
+  pendingReveal: null,
+  lastRevealCycle: -5,
 };
 
 export const longDayWarningSave: GameStateFixture = {
@@ -83,6 +103,45 @@ export const midGameSave: GameStateFixture = {
   lastArchetype: "Wanderer",
   history: ["day: Share her water and rest", "night: Bargain at the threshold"],
   rawTurns: [],
+  identity: { current: null, history: [] },
+  pendingReveal: null,
+  lastRevealCycle: -5,
+};
+
+export const identityHeavyLightSave: GameStateFixture = {
+  cycle: 12,
+  turn: 24,
+  phase: "day",
+  balance: -50,
+  lastTone: "yang",
+  stagnationStreak: 1,
+  lastArchetype: "Temptation",
+  history: [],
+  rawTurns: makeYangTurns(24),
+  identity: { current: null, history: [] },
+  pendingReveal: null,
+  lastRevealCycle: -5,
+};
+
+export const gameOverWithIdentitySave: GameStateFixture = {
+  cycle: 14,
+  turn: 28,
+  phase: "day",
+  balance: -95,
+  lastTone: "yang",
+  stagnationStreak: 1,
+  lastArchetype: "Temptation",
+  history: [],
+  rawTurns: makeYangTurns(24),
+  identity: {
+    current: "flame-herald",
+    history: [
+      { cycle: 12, id: "flame-herald", title: "Flame Herald" },
+      { cycle: 8, id: "ember-saint", title: "Ember Saint" },
+    ],
+  },
+  pendingReveal: null,
+  lastRevealCycle: 12,
 };
 
 export async function clearSave(page: Page) {
