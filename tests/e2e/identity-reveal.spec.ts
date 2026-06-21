@@ -1,6 +1,7 @@
 import { test, expect } from "@playwright/test";
 import {
   clickStrongestYangChoice,
+  dismissDiscoveryIfPresent,
   identityHeavyLightSave,
   seedSave,
   waitForScene,
@@ -11,6 +12,7 @@ test.describe("identity reveal", () => {
     await seedSave(page, identityHeavyLightSave);
     await page.goto("/?demo=1");
     await page.getByRole("button", { name: "Continue the vigil" }).click();
+    await dismissDiscoveryIfPresent(page);
     await waitForScene(page);
 
     await clickStrongestYangChoice(page);
@@ -26,6 +28,7 @@ test.describe("identity reveal", () => {
     await seedSave(page, identityHeavyLightSave);
     await page.goto("/?demo=1");
     await page.getByRole("button", { name: "Continue the vigil" }).click();
+    await dismissDiscoveryIfPresent(page);
     await waitForScene(page);
     await clickStrongestYangChoice(page);
 
@@ -44,6 +47,7 @@ test.describe("identity reveal", () => {
     await seedSave(page, identityHeavyLightSave);
     await page.goto("/?demo=1");
     await page.getByRole("button", { name: "Continue the vigil" }).click();
+    await dismissDiscoveryIfPresent(page);
     await waitForScene(page);
     await clickStrongestYangChoice(page);
 

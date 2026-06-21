@@ -302,6 +302,17 @@ export async function gotoTitle(page: Page, demo = false, reducedMotion = true) 
   await page.goto(demo ? `/${DEMO_QUERY}` : "/");
 }
 
+export async function dismissDiscoveryIfPresent(page: Page) {
+  const continueBtn = page.getByTestId("encounter-continue");
+  try {
+    await continueBtn.waitFor({ state: "visible", timeout: 10000 });
+    await continueBtn.click();
+    await page.getByTestId("encounter-discovery-screen").waitFor({ state: "hidden", timeout: 5000 });
+  } catch {
+    /* no intro discovery interstitial */
+  }
+}
+
 export async function startDemo(page: Page, options?: { reducedMotion?: boolean }) {
   await gotoTitle(page, true, options?.reducedMotion ?? true);
   await page.getByRole("button", { name: "Begin the vigil" }).click();
@@ -325,7 +336,10 @@ export async function waitForChoiceResolved(page: Page) {
 }
 
 export async function waitForScene(page: Page) {
+  await dismissDiscoveryIfPresent(page);
   await waitForChoiceResolved(page);
+  const reveal = page.getByTestId("identity-reveal-screen");
+  if (await reveal.isVisible().catch(() => false)) return;
   await page.getByTestId("narration").waitFor({ state: "visible" });
   await page.getByTestId("choices").locator("button").first().waitFor({ state: "visible" });
 }

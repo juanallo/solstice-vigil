@@ -21,6 +21,7 @@ import {
   type IdentityState,
   type PendingReveal,
 } from "../../lib/identity";
+import { maybeForceIntroIdentity, maybeSeedIntroEncounter } from "../../lib/onboarding-pacing";
 import {
   buildTurnPrompt,
   balanceDescriptor,
@@ -279,6 +280,8 @@ export default function SolsticeVigil() {
   const cancelRef = useRef(false);
   const busyRef = useRef(false);
   const demoRef = useRef(false);
+  const pendingAutoNarrationRef = useRef(false);
+  const sceneRef = useRef<Scene | null>(null);
   const { audioEnabled, toggleAudio, unlockAudio, duckMusic } = useGameAudio(status === "title");
   const {
     supported: speechSupported,
@@ -293,9 +296,13 @@ export default function SolsticeVigil() {
   });
 
   useEffect(() => {
+    sceneRef.current = scene;
+  }, [scene]);
+
+  useEffect(() => {
     if (status !== "playing" || !scene?.narration || !speechSupported || !autoPlayEnabled) return;
     speak(scene.narration);
-  }, [status, scene?.narration, speechSupported, autoPlayEnabled, speak]);
+  }, [status, scene, speechSupported, autoPlayEnabled, speak]);
 
   useEffect(() => {
     if (status === "playing") return;
@@ -442,13 +449,13 @@ export default function SolsticeVigil() {
     await transitionScene(null);
     setStreamHint(pulse(0));
     try {
-      let working = s;
-      let rare = opts?.regenerateActive && s.encounter.activeEncounterId
-        ? { id: s.encounter.activeEncounterId, isFirst: s.encounter.pendingDiscovery?.isFirst ?? !s.encounter.codex[s.encounter.activeEncounterId] }
-        : selectRareEncounter(s);
+      let working = maybeSeedIntroEncounter(s);
+      let rare = opts?.regenerateActive && working.encounter.activeEncounterId
+        ? { id: working.encounter.activeEncounterId, isFirst: working.encounter.pendingDiscovery?.isFirst ?? !working.encounter.codex[working.encounter.activeEncounterId] }
+        : selectRareEncounter(working);
 
       if (rare && !opts?.regenerateActive) {
-        working = prepareRareTurn(s, rare);
+        working = prepareRareTurn(working, rare);
         setState(working);
         saveState(working);
       }
@@ -462,10 +469,13 @@ export default function SolsticeVigil() {
           const engine = engineRef.current || (await initEngine());
           next = await generateRareScene(engine, working, rare.id);
         }
-        await transitionScene(next);
         if (working.encounter.pendingDiscovery) {
+          pendingAutoNarrationRef.current = true;
           await transitionStatus("discovery");
+        } else {
+          pendingAutoNarrationRef.current = false;
         }
+        await transitionScene(next);
         return;
       }
 
@@ -566,6 +576,9 @@ export default function SolsticeVigil() {
       next.phase = flippingTo;
     }
     next = updateIdentity(next);
+    if (!next.pendingReveal) {
+      next = maybeForceIntroIdentity(next);
+    }
     if (state.encounter.activeEncounterId) {
       next = recordEncounterOutcome(next, state.encounter.activeEncounterId, action);
     }
@@ -695,7 +708,14 @@ export default function SolsticeVigil() {
     setState(next);
     saveState(next);
     await transitionStatus("playing");
-  }, [state, unlockAudio, transitionStatus]);
+    if (pendingAutoNarrationRef.current) {
+      pendingAutoNarrationRef.current = false;
+      const narration = sceneRef.current?.narration;
+      if (autoPlayEnabled && speechSupported && narration) {
+        speak(narration);
+      }
+    }
+  }, [state, unlockAudio, transitionStatus, autoPlayEnabled, speechSupported, speak]);
   const bg = worldBg(state.phase, state.balance);
   const meterPct = ((state.balance + EXTREME) / (2 * EXTREME)) * 100;
   const phaseTint = Math.abs(state.balance) / EXTREME;

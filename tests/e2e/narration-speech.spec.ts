@@ -24,8 +24,11 @@ test.describe("narration speech", () => {
       });
 
       let activeUtterance: SpeechSynthesisUtterance | null = null;
+      let speakCount = 0;
 
       SpeechSynthesis.prototype.speak = function (utterance: SpeechSynthesisUtterance) {
+        speakCount += 1;
+        (window as Window & { __svSpeakCount?: number }).__svSpeakCount = speakCount;
         if (activeUtterance) {
           activeUtterance.onend?.(new Event("end") as SpeechSynthesisEvent);
         }
@@ -127,7 +130,29 @@ test.describe("narration speech", () => {
     await expect(page.getByTestId("narration-play")).toHaveAttribute("aria-pressed", "true");
   });
 
+  test("autoplay does not start during encounter discovery", async ({ page }) => {
+    test.setTimeout(60_000);
+    await startDemo(page);
+    await waitForScene(page);
+
+    await page.getByTestId("narration-autoplay").check();
+    await expect(page.getByTestId("narration-play")).toHaveAttribute("aria-pressed", "true");
+    await page.waitForTimeout(600);
+
+    const speakCountBeforeEncounter = await page.evaluate(
+      () => (window as Window & { __svSpeakCount?: number }).__svSpeakCount ?? 0,
+    );
+    await clickFirstChoice(page);
+
+    await expect(page.getByTestId("encounter-discovery-screen")).toBeVisible();
+    const speakCountDuringDiscovery = await page.evaluate(
+      () => (window as Window & { __svSpeakCount?: number }).__svSpeakCount ?? 0,
+    );
+    expect(speakCountDuringDiscovery).toBe(speakCountBeforeEncounter);
+  });
+
   test("autoplay preference persists in localStorage", async ({ page }) => {
+    test.setTimeout(60_000);
     await startDemo(page);
     await waitForScene(page);
 
