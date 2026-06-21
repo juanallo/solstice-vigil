@@ -1,0 +1,15 @@
+{
+  "name": "solstice-vigil",
+  "local_port": 50426,
+  "entrypoint": "bun run dev",
+  "publish": {
+    "label": "solstice-vigil",
+    "type": "http",
+    "entrypoint": "bun run prod",
+    "published_port": 57405,
+    "env": {
+      "NODE_ENV": "production",
+      "ZO_CLIENT_IDENTITY_TOKEN": "none"
+    }
+  }
+}
