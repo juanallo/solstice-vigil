@@ -1,5 +1,5 @@
 import { test, expect } from "@playwright/test";
-import { buildTurnPrompt, CONTINUITY_INSTRUCTION } from "../../src/lib/prompt";
+import { buildDiceOracleBlock, buildTurnPrompt, CONTINUITY_INSTRUCTION } from "../../src/lib/prompt";
 import {
   buildStoryMemoryPromptBlock,
   extractProperNouns,
@@ -69,6 +69,106 @@ test.describe("buildTurnPrompt", () => {
     expect(prompt).toContain("STORY MEMORY");
     expect(prompt).toContain("Known figures and places:");
     expect(prompt).toContain("Past beats:");
+  });
+});
+
+test.describe("dice oracle prompt", () => {
+  test("buildDiceOracleBlock returns text for fumble and critical only", () => {
+    expect(
+      buildDiceOracleBlock({
+        archetype: "Threshold",
+        phase: "day",
+        narration: "A bridge.",
+        chosenLabel: "Stride boldly",
+        balanceShift: 38,
+        tone: "yang",
+        roll: 1,
+        rollTier: "fumble",
+        baseBalanceShift: -38,
+      }),
+    ).toContain("went badly");
+
+    expect(
+      buildDiceOracleBlock({
+        archetype: "Threshold",
+        phase: "day",
+        narration: "A bridge.",
+        chosenLabel: "Stride boldly",
+        balanceShift: -45,
+        tone: "yang",
+        roll: 20,
+        rollTier: "critical",
+        baseBalanceShift: -30,
+      }),
+    ).toContain("went wondrously");
+
+    expect(
+      buildDiceOracleBlock({
+        archetype: "Omen",
+        phase: "day",
+        narration: "An omen.",
+        chosenLabel: "Mark the omen",
+        balanceShift: 0,
+        tone: "neutral",
+      }),
+    ).toBeNull();
+  });
+
+  test("buildTurnPrompt includes oracle block after fumble turn", () => {
+    const prompt = buildTurnPrompt(
+      {
+        ...midGameSave,
+        rawTurns: [
+          ...midGameSave.rawTurns,
+          {
+            archetype: "Threshold",
+            phase: "day",
+            narration: "A bridge of frozen light.",
+            chosenLabel: "Stride boldly into the unsetting light",
+            balanceShift: 38,
+            tone: "yang",
+            roll: 1,
+            rollTier: "fumble",
+            baseBalanceShift: -38,
+          },
+        ],
+        identity: { current: null, history: [] },
+        pendingReveal: null,
+        lastRevealCycle: -5,
+      },
+      "Wanderer",
+    );
+
+    expect(prompt).toContain("LAST ORACLE");
+    expect(prompt).toContain("went badly");
+  });
+
+  test("buildTurnPrompt omits oracle block after intended roll", () => {
+    const prompt = buildTurnPrompt(
+      {
+        ...midGameSave,
+        rawTurns: [
+          ...midGameSave.rawTurns,
+          {
+            archetype: "Threshold",
+            phase: "day",
+            narration: "A bridge of frozen light.",
+            chosenLabel: "Stride boldly into the unsetting light",
+            balanceShift: -38,
+            tone: "yang",
+            roll: 10,
+            rollTier: "intended",
+            baseBalanceShift: -38,
+          },
+        ],
+        identity: { current: null, history: [] },
+        pendingReveal: null,
+        lastRevealCycle: -5,
+      },
+      "Wanderer",
+    );
+
+    expect(prompt).not.toContain("LAST ORACLE");
   });
 });
 

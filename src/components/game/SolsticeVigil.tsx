@@ -3,6 +3,7 @@ import { ENCOUNTERS, encounterKindLabel, encounterTitle, type EncounterId } from
 import { IDENTITIES, identityIcon, identityTitle } from "../../data/identities";
 import { useGameAudio } from "../../hooks/useGameAudio";
 import { useSpeechNarration } from "../../hooks/useSpeechNarration";
+import { resolveChoiceRoll, shouldRoll, diceChoiceLabel, diceFacePath, assignDiceAction, type DiceOutcome } from "../../lib/dice";
 import {
   buildRareEncounterPrompt,
   dismissDiscovery,
@@ -55,6 +56,7 @@ interface Action {
   label: string;
   balanceShift: number;
   tone: Tone;
+  requiresRoll?: boolean;
   memory?: { key: string; label: string };
 }
 interface Scene { archetype: Archetype; narration: string; actions: Action[]; encounterId?: EncounterId; }
@@ -151,6 +153,12 @@ const FALLBACK: Record<Archetype, (p: Phase) => Scene> = {
 
 function clamp(v: number, lo: number, hi: number) { return Math.max(lo, Math.min(hi, v)); }
 function clampShift(arch: string, v: number) { return clamp(Math.round(v), -SHIFT_BOUNDS[arch], SHIFT_BOUNDS[arch]); }
+function finalizeSceneActions(actions: Action[], archetype: Archetype): Action[] {
+  return assignDiceAction(
+    actions.map((a) => ({ ...a, balanceShift: clampShift(archetype, a.balanceShift) })).slice(0, 3),
+    archetype,
+  );
+}
 function freshState(): GameState {
   return {
     cycle: 0, turn: 0, phase: "day", balance: START_BALANCE,
@@ -266,6 +274,7 @@ export default function SolsticeVigil() {
   const [demo, setDemo] = useState(false);
   const [gameOverCause, setGameOverCause] = useState<GameOverCause | null>(null);
   const [shareCopied, setShareCopied] = useState(false);
+  const [pendingRoll, setPendingRoll] = useState<{ action: Action; outcome: DiceOutcome } | null>(null);
   const engineRef = useRef<any>(null);
   const cancelRef = useRef(false);
   const busyRef = useRef(false);
@@ -368,8 +377,11 @@ export default function SolsticeVigil() {
       scene = parseScene(raw2, arch);
     }
     if (!scene) scene = FALLBACK[arch](s.phase);
-    scene.actions = scene.actions.map((a) => ({ ...a, balanceShift: clampShift(arch, a.balanceShift) })).slice(0, 3);
-    if (scene.actions.length < 2) scene = FALLBACK[arch](s.phase);
+    scene.actions = finalizeSceneActions(scene.actions, arch);
+    if (scene.actions.length < 2) {
+      scene = FALLBACK[arch](s.phase);
+      scene.actions = finalizeSceneActions(scene.actions, arch);
+    }
     scene.archetype = arch;
     return scene;
   }, []);
@@ -385,7 +397,7 @@ export default function SolsticeVigil() {
     return {
       archetype: "Wanderer",
       narration: fb.narration,
-      actions: actions.slice(0, 3),
+      actions: finalizeSceneActions(actions, "Wanderer"),
       encounterId: id,
     };
   }, []);
@@ -417,7 +429,7 @@ export default function SolsticeVigil() {
       scene = parseScene(raw2, arch);
     }
     if (!scene) return buildRareScene(s, id);
-    scene.actions = scene.actions.map((a) => ({ ...a, balanceShift: clampShift(arch, a.balanceShift) })).slice(0, 3);
+    scene.actions = finalizeSceneActions(scene.actions, arch);
     if (scene.actions.length < 2) return buildRareScene(s, id);
     scene.encounterId = id;
     return scene;
@@ -461,7 +473,7 @@ export default function SolsticeVigil() {
       if (demoRef.current) {
         await new Promise((r) => setTimeout(r, 450));
         next = FALLBACK[arch](working.phase);
-        next.actions = next.actions.map((a) => ({ ...a, balanceShift: clampShift(arch, a.balanceShift) })).slice(0, 3);
+        next.actions = finalizeSceneActions(next.actions, arch);
       } else {
         const engine = engineRef.current || (await initEngine());
         next = await generateScene(engine, working, arch);
@@ -512,15 +524,23 @@ export default function SolsticeVigil() {
     catch (e: any) { setErrorMsg(e?.message || String(e)); await transitionStatus("error"); }
   }, [initEngine, resumePlay, unlockAudio, transitionStatus]);
 
-  const choose = useCallback(async (action: Action) => {
-    unlockAudio();
-    stop();
+  const commitChoice = useCallback(async (action: Action, outcome: DiceOutcome | null) => {
     if (!scene || generating) return;
     const chosen = scene;
-    // Subtle escalation: the world grows more extreme over time, so the vigil eventually ends.
+    const resolvedShift = outcome?.resolvedShift ?? action.balanceShift;
     const esc = 1 + ESCALATION * Math.floor(state.turn / 10);
-    const newBalance = clamp(state.balance + Math.round(action.balanceShift * esc), -EXTREME, EXTREME);
-    const newRaw: TurnRecord = { archetype: chosen.archetype, phase: state.phase, narration: chosen.narration, chosenLabel: action.label, balanceShift: action.balanceShift, tone: action.tone };
+    const newBalance = clamp(state.balance + Math.round(resolvedShift * esc), -EXTREME, EXTREME);
+    const newRaw: TurnRecord = {
+      archetype: chosen.archetype,
+      phase: state.phase,
+      narration: chosen.narration,
+      chosenLabel: action.label,
+      balanceShift: resolvedShift,
+      tone: action.tone,
+      ...(outcome
+        ? { roll: outcome.roll, rollTier: outcome.tier, baseBalanceShift: outcome.baseShift }
+        : {}),
+    };
     let next: GameState = {
       ...state,
       turn: state.turn + 1,
@@ -565,7 +585,43 @@ export default function SolsticeVigil() {
       return;
     }
     await runTurn(next);
-  }, [scene, generating, state, runTurn, unlockAudio, transitionStatus, stop]);
+  }, [scene, generating, state, runTurn, transitionStatus]);
+
+  const beginChoice = useCallback(async (action: Action) => {
+    unlockAudio();
+    stop();
+    if (!scene || generating || pendingRoll) return;
+    if (!shouldRoll(action)) {
+      await commitChoice(action, null);
+      return;
+    }
+    const outcome = resolveChoiceRoll({
+      baseShift: action.balanceShift,
+      tone: action.tone,
+      phase: state.phase,
+      identityId: state.identity.current,
+    });
+    const reduced = typeof window !== "undefined"
+      && window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+    if (reduced) {
+      await commitChoice(action, outcome);
+      return;
+    }
+    setPendingRoll({ action, outcome });
+  }, [scene, generating, pendingRoll, commitChoice, state.phase, state.identity.current, unlockAudio, stop]);
+
+  useEffect(() => {
+    if (!pendingRoll) return;
+    const reduced = typeof window !== "undefined"
+      && window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+    const delay = reduced ? 0 : 1500;
+    const { action, outcome } = pendingRoll;
+    const timer = window.setTimeout(() => {
+      setPendingRoll(null);
+      void commitChoice(action, outcome);
+    }, delay);
+    return () => window.clearTimeout(timer);
+  }, [pendingRoll, commitChoice]);
 
   const interrupt = useCallback(() => { cancelRef.current = true; }, []);
   const restart = useCallback(() => {
@@ -976,19 +1032,53 @@ export default function SolsticeVigil() {
                     )}
                     <p data-testid="narration" className="sv-narrative">{scene.narration}</p>
                   </div>
-                  <div data-testid="choices" className="sv-choices" role="group" aria-label="Scene choices">
-                    {scene.actions.map((a, i) => (
-                      <button
-                        key={i}
-                        type="button"
-                        onClick={() => choose(a)}
-                        disabled={generating}
-                        className="sv-choice-button"
-                      >
-                        {a.label}
-                      </button>
-                    ))}
-                  </div>
+                  {pendingRoll && (
+                    <div
+                      data-testid="dice-reveal"
+                      className={`sv-dice-reveal sv-dice-reveal--${pendingRoll.outcome.tier}`}
+                    >
+                      <div className="sv-dice-reveal__panel">
+                        <div className="sv-dice-reveal__frame">
+                          <img
+                            src={diceFacePath(pendingRoll.outcome.roll)}
+                            alt={`The wheel shows ${pendingRoll.outcome.roll}`}
+                            className="sv-dice-reveal__die"
+                            data-testid="dice-roll"
+                            draggable={false}
+                          />
+                        </div>
+                      </div>
+                      <p data-testid="dice-tier-line" className="sv-dice-reveal__tier">
+                        {pendingRoll.outcome.tierLine}
+                      </p>
+                      {pendingRoll.outcome.oracleLine && (
+                        <p data-testid="dice-oracle-line" className="sv-dice-reveal__oracle">
+                          {pendingRoll.outcome.oracleLine}
+                        </p>
+                      )}
+                      {pendingRoll.outcome.tier !== "intended" && (
+                        <p data-testid="dice-shift" className="sv-dice-reveal__shift">
+                          {pendingRoll.outcome.baseShift} → {pendingRoll.outcome.resolvedShift}
+                        </p>
+                      )}
+                    </div>
+                  )}
+                  {!pendingRoll && (
+                    <div data-testid="choices" className="sv-choices" role="group" aria-label="Scene choices">
+                      {scene.actions.map((a, i) => (
+                        <button
+                          key={i}
+                          type="button"
+                          onClick={() => beginChoice(a)}
+                          disabled={generating}
+                          className="sv-choice-button"
+                          data-testid={a.requiresRoll ? "choice-dice" : undefined}
+                        >
+                          {a.requiresRoll ? diceChoiceLabel(a.label) : a.label}
+                        </button>
+                      ))}
+                    </div>
+                  )}
                 </div>
               )}
               {generating && scene && (

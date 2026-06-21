@@ -1,5 +1,6 @@
 import { test, expect } from "@playwright/test";
 import {
+  clickStrongestYangChoice,
   clockmakerEncounterSave,
   clockmakerRepeatEncounterSave,
   gameOverWithWondersSave,
@@ -106,7 +107,7 @@ test.describe("rare encounter", () => {
     await page.getByRole("button", { name: "Continue the vigil" }).click();
     await waitForScene(page);
 
-    await page.getByRole("button", { name: /Feed the brazier|Stride boldly|Refuse the bargain/i }).first().click();
+    await clickStrongestYangChoice(page);
 
     await expect(page.getByTestId("gameover-screen")).toBeVisible();
 

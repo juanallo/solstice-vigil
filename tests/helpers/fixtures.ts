@@ -297,13 +297,13 @@ export async function getSave(page: Page): Promise<GameStateFixture | null> {
   }, SAVE_KEY);
 }
 
-export async function gotoTitle(page: Page, demo = false) {
-  await page.emulateMedia({ reducedMotion: "reduce" });
+export async function gotoTitle(page: Page, demo = false, reducedMotion = true) {
+  await page.emulateMedia({ reducedMotion: reducedMotion ? "reduce" : "no-preference" });
   await page.goto(demo ? `/${DEMO_QUERY}` : "/");
 }
 
-export async function startDemo(page: Page) {
-  await gotoTitle(page, true);
+export async function startDemo(page: Page, options?: { reducedMotion?: boolean }) {
+  await gotoTitle(page, true, options?.reducedMotion ?? true);
   await page.getByRole("button", { name: "Begin the vigil" }).click();
   await waitForScene(page);
 }
@@ -314,7 +314,18 @@ export async function startDemoFromLink(page: Page) {
   await waitForScene(page);
 }
 
+export async function waitForChoiceResolved(page: Page) {
+  const dice = page.getByTestId("dice-reveal");
+  try {
+    await dice.waitFor({ state: "visible", timeout: 500 });
+    await dice.waitFor({ state: "hidden", timeout: 5000 });
+  } catch {
+    /* instant reveal under reduced motion — no dice UI to wait for */
+  }
+}
+
 export async function waitForScene(page: Page) {
+  await waitForChoiceResolved(page);
   await page.getByTestId("narration").waitFor({ state: "visible" });
   await page.getByTestId("choices").locator("button").first().waitFor({ state: "visible" });
 }
@@ -332,9 +343,13 @@ export async function clickFirstChoice(page: Page) {
   await clickChoiceByIndex(page, 0);
 }
 
+export async function clickDiceChoice(page: Page) {
+  await page.getByTestId("choice-dice").click();
+}
+
 export async function clickStrongestYangChoice(page: Page) {
   const yangPattern =
-    /Stride boldly|Feed the brazier|Stoke it further|Press on across|Will the sun to hold|Take the quick east|Enter, surrender|Welcome the foreseen dawn|Turn from the pool|Claw back toward the failing light|Let the lurch carry you into day|Open your eyes to the sudden gold/i;
+    /(?:Roll the dice to )?(Stride boldly|Feed the brazier|Stoke it further|Press on across|Will the sun to hold|Take the quick east|Enter, surrender|Welcome the foreseen dawn|Turn from the pool|Claw back toward the failing light|Let the lurch carry you into day|Open your eyes to the sudden gold)/i;
   const match = page.getByRole("button", { name: yangPattern });
   if ((await match.count()) > 0) {
     await match.first().click();
