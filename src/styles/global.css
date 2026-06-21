@@ -1,5 +1,6 @@
 @import "tailwindcss";
 @import "./solstice-vigil.css";
+@import "./view-transitions.css";
 
 :root {
   color-scheme: light dark;

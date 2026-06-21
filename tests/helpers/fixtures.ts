@@ -298,6 +298,7 @@ export async function getSave(page: Page): Promise<GameStateFixture | null> {
 }
 
 export async function gotoTitle(page: Page, demo = false) {
+  await page.emulateMedia({ reducedMotion: "reduce" });
   await page.goto(demo ? `/${DEMO_QUERY}` : "/");
 }
 

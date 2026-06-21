@@ -1,6 +1,6 @@
 import { useState, useEffect, useRef, useCallback } from "react";
 import { ENCOUNTERS, encounterKindLabel, encounterTitle, type EncounterId } from "../../data/encounters";
-import { IDENTITIES, identityTitle } from "../../data/identities";
+import { IDENTITIES, identityIcon, identityTitle } from "../../data/identities";
 import { useGameAudio } from "../../hooks/useGameAudio";
 import {
   buildRareEncounterPrompt,
@@ -34,6 +34,7 @@ import {
   updateStoryMemory,
   type StoryMemory,
 } from "../../lib/story-memory";
+import { withViewTransition } from "../../lib/view-transition";
 
 // SOLSTICE VIGIL — a never-ending solo RPG.
 // On-device LLM (Google AI Edge LiteRT-LM, Gemma 4 E2B) renders each scene.
@@ -270,6 +271,14 @@ export default function SolsticeVigil() {
   const demoRef = useRef(false);
   const { audioEnabled, toggleAudio, unlockAudio } = useGameAudio(status === "title");
 
+  const transitionStatus = useCallback((next: Status) => {
+    return withViewTransition(() => setStatus(next));
+  }, []);
+
+  const transitionScene = useCallback((next: Scene | null) => {
+    return withViewTransition(() => setScene(next));
+  }, []);
+
   useEffect(() => {
     setHasSave(!!loadSave());
     try { if (new URLSearchParams(window.location.search).get("demo") === "1") demoRef.current = true; } catch { /* ignore */ }
@@ -396,7 +405,7 @@ export default function SolsticeVigil() {
     if (busyRef.current) return;
     busyRef.current = true;
     setGenerating(true);
-    setScene(null);
+    await transitionScene(null);
     setStreamHint(pulse(0));
     try {
       let working = s;
@@ -419,9 +428,9 @@ export default function SolsticeVigil() {
           const engine = engineRef.current || (await initEngine());
           next = await generateRareScene(engine, working, rare.id);
         }
-        setScene(next);
+        await transitionScene(next);
         if (working.encounter.pendingDiscovery) {
-          setStatus("discovery");
+          await transitionStatus("discovery");
         }
         return;
       }
@@ -436,29 +445,29 @@ export default function SolsticeVigil() {
         next = await generateScene(engine, working, arch);
       }
       next.archetype = arch;
-      setScene(next);
+      await transitionScene(next);
     } catch (e: any) {
       setErrorMsg(e?.message || String(e));
-      setStatus("error");
+      await transitionStatus("error");
     } finally {
       busyRef.current = false;
       setGenerating(false);
       setStreamHint("");
     }
-  }, [buildRareScene, generateRareScene, generateScene, initEngine]);
+  }, [buildRareScene, generateRareScene, generateScene, initEngine, transitionScene, transitionStatus]);
   const resumePlay = useCallback(async (s: GameState) => {
     if (s.pendingReveal) {
-      setStatus("reveal");
+      await transitionStatus("reveal");
       return;
     }
     if (s.encounter.pendingDiscovery) {
-      setStatus("discovery");
+      await transitionStatus("discovery");
       if (!scene) await runTurn(s, { regenerateActive: true });
       return;
     }
-    setStatus("playing");
+    await transitionStatus("playing");
     await runTurn(s);
-  }, [runTurn, scene]);
+  }, [runTurn, scene, transitionStatus]);
 
   const start = useCallback(async (resume: boolean, useDemo = false) => {
     unlockAudio();
@@ -474,12 +483,12 @@ export default function SolsticeVigil() {
       await resumePlay(s);
       return;
     }
-    if (!webGpuAvailable()) { setStatus("nosupport"); return; }
-    setStatus("loading");
+    if (!webGpuAvailable()) { await transitionStatus("nosupport"); return; }
+    await transitionStatus("loading");
     setState(s);
     try { await initEngine(); await resumePlay(s); }
-    catch (e: any) { setErrorMsg(e?.message || String(e)); setStatus("error"); }
-  }, [initEngine, resumePlay, unlockAudio]);
+    catch (e: any) { setErrorMsg(e?.message || String(e)); await transitionStatus("error"); }
+  }, [initEngine, resumePlay, unlockAudio, transitionStatus]);
 
   const choose = useCallback(async (action: Action) => {
     unlockAudio();
@@ -525,21 +534,21 @@ export default function SolsticeVigil() {
       setGameOverCause(next.balance <= -EXTREME ? "day" : "night");
       clearSave();
       setHasSave(false);
-      setStatus("gameover");
+      await transitionStatus("gameover");
       return;
     }
     if (next.pendingReveal) {
-      setStatus("reveal");
+      await transitionStatus("reveal");
       return;
     }
     await runTurn(next);
-  }, [scene, generating, state, runTurn, unlockAudio]);
+  }, [scene, generating, state, runTurn, unlockAudio, transitionStatus]);
 
   const interrupt = useCallback(() => { cancelRef.current = true; }, []);
   const restart = useCallback(() => {
     unlockAudio();
-    clearSave(); setHasSave(false); setState(freshState()); setScene(null); setGameOverCause(null); setShareCopied(false); setStatus("title");
-  }, [unlockAudio]);
+    clearSave(); setHasSave(false); setState(freshState()); setScene(null); setGameOverCause(null); setShareCopied(false); void transitionStatus("title");
+  }, [unlockAudio, transitionStatus]);
 
   const shareText = useCallback(async (text: string) => {
     const url = "https://solstice-vigil-jalloron.zocomputer.io";
@@ -591,23 +600,23 @@ export default function SolsticeVigil() {
     setState(next);
     saveState(next);
     if (next.encounter.pendingDiscovery) {
-      setStatus("discovery");
+      await transitionStatus("discovery");
       if (!scene && next.encounter.activeEncounterId) {
         await runTurn(next, { regenerateActive: true });
       }
       return;
     }
-    setStatus("playing");
+    await transitionStatus("playing");
     await runTurn(next);
-  }, [state, runTurn, unlockAudio, scene]);
+  }, [state, runTurn, unlockAudio, scene, transitionStatus]);
 
   const continueFromDiscovery = useCallback(async () => {
     unlockAudio();
     const next = dismissDiscovery(state);
     setState(next);
     saveState(next);
-    setStatus("playing");
-  }, [state, unlockAudio]);
+    await transitionStatus("playing");
+  }, [state, unlockAudio, transitionStatus]);
   const bg = worldBg(state.phase, state.balance);
   const meterPct = ((state.balance + EXTREME) / (2 * EXTREME)) * 100;
   const phaseTint = Math.abs(state.balance) / EXTREME;
@@ -638,71 +647,72 @@ export default function SolsticeVigil() {
         <span className="sv-audio-toggle__icon" aria-hidden="true">♪</span>
       </button>
       <div className={`sv-container${status === "title" || status === "loading" || status === "nosupport" || status === "error" || status === "gameover" || status === "reveal" || status === "discovery" ? " sv-container--narrow" : ""}`}>
-        {status === "title" && (
-          <div className="sv-screen-center">
+        {(status === "title" || status === "loading") && (
+          <div className="sv-screen-center sv-screen">
             <div className="sv-panel sv-panel--landing">
               <img
                 src="/solstice-vigil-bg.webp"
                 alt=""
-                className="sv-panel-hero"
+                className="sv-panel-hero sv-panel-hero--key-art"
                 draggable={false}
               />
-              <div className="sv-panel-body">
-                <div className="sv-divider" aria-hidden="true">
-                  <img src="/logo.png" alt="" className="sv-logo" draggable={false} />
-                </div>
-                <h1 className="sv-title">SOLSTICE VIGIL</h1>
-                <p className="sv-subtitle">hold the balance · the longest day, the endless turn</p>
-                <p className="sv-body" style={{ marginTop: "1.5rem", maxWidth: "28rem", marginLeft: "auto", marginRight: "auto" }}>
-                  The world has frozen at the June solstice. You are a lone wanderer trying to keep the wheel of day and night in balance. Stray too far into the Long Day or sink too deep into the Hush of Night, and the vigil ends. How many days can you hold the balance?
-                </p>
-                <p className="sv-note" style={{ marginTop: "1.25rem", maxWidth: "22rem", marginLeft: "auto", marginRight: "auto" }}>
-                  Narrated entirely on your device by Gemma 4 via Google AI Edge LiteRT-LM (WebGPU). Works best in Chrome 113+ on a machine with a GPU.
-                </p>
-                <div className="sv-actions">
-                  <button type="button" onClick={() => start(false)} className="sv-button-primary">
-                    <span aria-hidden="true">☀</span>
-                    Begin the vigil
-                  </button>
-                  {hasSave && (
-                    <button type="button" onClick={() => start(true)} className="sv-button-secondary">
-                      <span aria-hidden="true">☾</span>
-                      Continue the vigil
-                    </button>
-                  )}
-                  <button type="button" onClick={() => start(false, true)} className="sv-link-button">
-                    Try demo mode (no AI, no download)
-                  </button>
-                </div>
-                <p className="sv-footer-note">Your progress is saved locally on this device.</p>
+              <div className={`sv-panel-body${status === "loading" ? " sv-panel-body--overlay sv-panel-body--loading" : ""}`}>
+                {status === "title" ? (
+                  <>
+                    <div className="sv-divider" aria-hidden="true">
+                      <img src="/logo.png" alt="" className="sv-logo" draggable={false} />
+                    </div>
+                    <h1 className="sv-title">SOLSTICE VIGIL</h1>
+                    <p className="sv-subtitle">hold the balance · the longest day, the endless turn</p>
+                    <p className="sv-body" style={{ marginTop: "1.5rem", maxWidth: "28rem", marginLeft: "auto", marginRight: "auto" }}>
+                      The world has frozen at the June solstice. You are a lone wanderer trying to keep the wheel of day and night in balance. Stray too far into the Long Day or sink too deep into the Hush of Night, and the vigil ends. How many days can you hold the balance?
+                    </p>
+                    <p className="sv-note" style={{ marginTop: "1.25rem", maxWidth: "22rem", marginLeft: "auto", marginRight: "auto" }}>
+                      Narrated entirely on your device by Gemma 4 via Google AI Edge LiteRT-LM (WebGPU). Works best in Chrome 113+ on a machine with a GPU.
+                    </p>
+                    <div className="sv-actions">
+                      <button type="button" onClick={() => start(false)} className="sv-button-primary">
+                        <span aria-hidden="true">☀</span>
+                        Begin the vigil
+                      </button>
+                      {hasSave && (
+                        <button type="button" onClick={() => start(true)} className="sv-button-secondary">
+                          <span aria-hidden="true">☾</span>
+                          Continue the vigil
+                        </button>
+                      )}
+                      <button type="button" onClick={() => start(false, true)} className="sv-link-button">
+                        Try demo mode (no AI, no download)
+                      </button>
+                    </div>
+                    <p className="sv-footer-note">Your progress is saved locally on this device.</p>
+                  </>
+                ) : (
+                  <>
+                    <div className="sv-loading-sigil" aria-hidden="true">☾</div>
+                    <div className="sv-progress">
+                      <div
+                        className="sv-progress__bar"
+                        style={{ width: `${loadPct >= 1 ? 100 : Math.max(8, loadPct * 100)}%` }}
+                      />
+                    </div>
+                    <p className="sv-body">{loadMsg || "Preparing the vigil…"}</p>
+                    {loadPct < 1 && (
+                      <p className="sv-note" style={{ marginTop: "0.75rem" }}>
+                        First load fetches the on-device model (~2 GB, cached after).{" "}
+                        <button type="button" onClick={() => start(false, true)} className="sv-link-button">
+                          skip to demo mode
+                        </button>
+                      </p>
+                    )}
+                  </>
+                )}
               </div>
-            </div>
-          </div>
-        )}
-        {status === "loading" && (
-          <div className="sv-screen-center">
-            <div className="sv-panel">
-              <div className="sv-loading-sigil" aria-hidden="true">☾</div>
-              <div className="sv-progress">
-                <div
-                  className="sv-progress__bar"
-                  style={{ width: `${loadPct >= 1 ? 100 : Math.max(8, loadPct * 100)}%` }}
-                />
-              </div>
-              <p className="sv-body">{loadMsg || "Preparing the vigil…"}</p>
-              {loadPct < 1 && (
-                <p className="sv-note" style={{ marginTop: "0.75rem" }}>
-                  First load fetches the on-device model (~2 GB, cached after).{" "}
-                  <button type="button" onClick={() => start(false, true)} className="sv-link-button">
-                    skip to demo mode
-                  </button>
-                </p>
-              )}
             </div>
           </div>
         )}
         {status === "nosupport" && (
-          <div className="sv-screen-center">
+          <div className="sv-screen-center sv-screen">
             <div className="sv-panel">
               <div className="sv-loading-sigil" aria-hidden="true">🜂</div>
               <h2 className="sv-heading">This vigil needs WebGPU for live narration</h2>
@@ -721,7 +731,7 @@ export default function SolsticeVigil() {
           </div>
         )}
         {status === "error" && (
-          <div className="sv-screen-center">
+          <div className="sv-screen-center sv-screen">
             <div className="sv-panel">
               <div className="sv-loading-sigil" aria-hidden="true">⚠</div>
               <h2 className="sv-heading">The vigil stumbled</h2>
@@ -743,7 +753,7 @@ export default function SolsticeVigil() {
           </div>
         )}
         {status === "gameover" && (
-          <div className="sv-screen-center" data-testid="gameover-screen">
+          <div className="sv-screen-center sv-screen" data-testid="gameover-screen">
             <div className="sv-panel">
               <img src="/logo.png" alt="" className="sv-logo sv-logo--sigil" draggable={false} aria-hidden="true" />
               <h2 className="sv-heading">the vigil ends</h2>
@@ -790,7 +800,7 @@ export default function SolsticeVigil() {
           </div>
         )}
         {status === "reveal" && reveal && revealDef && (
-          <div className="sv-screen-center" data-testid="identity-reveal-screen">
+          <div className="sv-screen-center sv-screen" data-testid="identity-reveal-screen">
             <div className="sv-panel sv-panel--identity">
               <img
                 src={revealDef.image}
@@ -818,7 +828,7 @@ export default function SolsticeVigil() {
           </div>
         )}
         {status === "discovery" && discovery && discoveryDef && (
-          <div className="sv-screen-center" data-testid="encounter-discovery-screen">
+          <div className="sv-screen-center sv-screen" data-testid="encounter-discovery-screen">
             <div className="sv-panel sv-panel--encounter">
               <img
                 src={discoveryDef.image}
@@ -849,7 +859,7 @@ export default function SolsticeVigil() {
           </div>
         )}
         {status === "playing" && (
-          <div className={`game-shell game-shell--${state.phase}`} style={{ "--w1": bg.c1, "--w2": bg.c2, "--w3": bg.c3 } as React.CSSProperties}>
+          <div className={`game-shell game-shell--${state.phase} sv-screen`} style={{ "--w1": bg.c1, "--w2": bg.c2, "--w3": bg.c3 } as React.CSSProperties}>
             <div className="sv-hud">
               <div className="sv-hud__left">
                 <span className="sv-meta" data-testid="day-count">Day {state.cycle + 1}</span>
@@ -867,7 +877,7 @@ export default function SolsticeVigil() {
                   className={`sv-hud__right sv-identity-badge sv-identity-badge--${currentIdentity.alignment}`}
                   data-testid="identity-badge"
                 >
-                  <img src={currentIdentity.image} alt="" className="sv-identity-portrait" draggable={false} />
+                  <img src={identityIcon(state.identity.current!)} alt="" className="sv-identity-portrait" draggable={false} />
                   <span className="sv-identity-badge__title" data-testid="identity-label">{currentIdentity.title}</span>
                 </div>
               ) : (
@@ -914,7 +924,7 @@ export default function SolsticeVigil() {
                 </div>
               )}
               {scene && (
-                <div style={{ display: "flex", flexDirection: "column", flex: 1 }}>
+                <div className="sv-scene-content" style={{ display: "flex", flexDirection: "column", flex: 1 }}>
                   <div className="sv-narrative-card">
                     <p data-testid="narration" className="sv-narrative">{scene.narration}</p>
                   </div>

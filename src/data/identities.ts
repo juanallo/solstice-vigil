@@ -52,6 +52,10 @@ export function identityTitle(id: IdentityId): string {
   return IDENTITIES[id].title;
 }
 
+export function identityIcon(id: IdentityId): string {
+  return `/archetypes/icons/${id}.png`;
+}
+
 export function identityAlignmentLabel(alignment: IdentityAlignment): string {
   if (alignment === "light") return "light-aligned";
   if (alignment === "night") return "night-aligned";

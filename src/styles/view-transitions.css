@@ -1,0 +1,127 @@
+:root {
+  --sv-ease-out: cubic-bezier(0.22, 1, 0.36, 1);
+  --sv-duration-screen: 380ms;
+  --sv-duration-enter: 420ms;
+  --sv-duration-exit: 280ms;
+  --sv-duration-hero: 280ms;
+}
+
+.sv-screen {
+  view-transition-name: sv-screen;
+  width: 100%;
+}
+
+.sv-panel-hero--key-art,
+.sv-identity-hero,
+.sv-encounter-hero {
+  view-transition-name: sv-hero;
+}
+
+.game-shell {
+  view-transition-name: sv-game;
+}
+
+.sv-scene-content {
+  view-transition-name: sv-scene;
+}
+
+@keyframes sv-fade-in {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+
+@keyframes sv-fade-out {
+  from {
+    opacity: 1;
+  }
+  to {
+    opacity: 0;
+  }
+}
+
+@keyframes sv-game-enter {
+  from {
+    opacity: 0;
+    transform: translateY(12px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+::view-transition-old(sv-screen) {
+  animation: sv-fade-out var(--sv-duration-exit) var(--sv-ease-out) both;
+}
+
+::view-transition-new(sv-screen) {
+  animation: sv-fade-in var(--sv-duration-enter) var(--sv-ease-out) both;
+}
+
+::view-transition-old(sv-hero) {
+  animation: sv-fade-out var(--sv-duration-hero) var(--sv-ease-out) both;
+}
+
+::view-transition-new(sv-hero) {
+  animation: sv-fade-in var(--sv-duration-hero) var(--sv-ease-out) both;
+}
+
+::view-transition-group(sv-hero) {
+  animation-duration: var(--sv-duration-hero);
+}
+
+::view-transition-old(sv-game) {
+  animation: sv-fade-out var(--sv-duration-exit) var(--sv-ease-out) both;
+}
+
+::view-transition-new(sv-game) {
+  animation: sv-game-enter var(--sv-duration-enter) var(--sv-ease-out) both;
+}
+
+::view-transition-old(sv-scene) {
+  animation: sv-fade-out var(--sv-duration-exit) var(--sv-ease-out) both;
+}
+
+::view-transition-new(sv-scene) {
+  animation: sv-fade-in var(--sv-duration-enter) var(--sv-ease-out) both;
+}
+
+.sv-panel-body--overlay {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  min-height: 12rem;
+}
+
+.sv-panel-body--loading {
+  padding-top: 1.5rem;
+  padding-bottom: 2rem;
+}
+
+.sv-button-primary:active:not(:disabled),
+.sv-button-secondary:active:not(:disabled) {
+  transform: scale(0.98);
+  transition-duration: 100ms;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  ::view-transition-group(*),
+  ::view-transition-old(*),
+  ::view-transition-new(*) {
+    animation: none !important;
+  }
+
+  .sv-screen,
+  .sv-panel-hero--key-art,
+  .sv-identity-hero,
+  .sv-encounter-hero,
+  .game-shell,
+  .sv-scene-content {
+    view-transition-name: none;
+  }
+}
