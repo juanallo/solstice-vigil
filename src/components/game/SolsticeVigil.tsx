@@ -194,6 +194,12 @@ async function isValidModelBlob(blob: Blob): Promise<boolean> {
   return true;
 }
 
+function toneIcon(tone: Tone) {
+  if (tone === "yang") return "☀";
+  if (tone === "yin") return "☾";
+  return "⏳";
+}
+
 export default function SolsticeVigil() {
   const [status, setStatus] = useState<Status>("title");
   const [state, setState] = useState<GameState>(freshState);
@@ -382,119 +388,214 @@ export default function SolsticeVigil() {
   }, [state.cycle, gameOverCause]);
   const bg = worldBg(state.phase, state.balance);
   const meterPct = ((state.balance + EXTREME) / (2 * EXTREME)) * 100;
+  const phaseTint = Math.abs(state.balance) / EXTREME;
   return (
     <main
-      style={{ "--w1": bg.c1, "--w2": bg.c2, "--w3": bg.c3, background: `linear-gradient(180deg, var(--w1), var(--w2) 55%, var(--w3))`, color: state.phase === "day" ? "#1c1917" : "#f5f1e8", transition: "background 900ms ease, color 900ms ease" } as React.CSSProperties}
-      className="min-h-screen w-full font-sans relative overflow-hidden"
+      className="sv-root"
+      style={{ "--phase-tint": phaseTint } as React.CSSProperties}
     >
-      <div className="relative z-10 max-w-2xl mx-auto px-5 py-8 min-h-screen flex flex-col">
+      <div className={`sv-container${status === "title" || status === "loading" || status === "nosupport" || status === "error" || status === "gameover" ? " sv-container--narrow" : ""}`}>
         {status === "title" && (
-          <div className="flex-1 flex flex-col items-center justify-center text-center">
-            <img src="/logo.png" alt="" width={128} height={128} className="mb-4 select-none w-32 h-32" draggable={false} />
-            <h1 className="text-5xl font-bold tracking-tight">SOLSTICE VIGIL</h1>
-            <p className="mt-3 opacity-80 italic">hold the balance · the longest day, the endless turn</p>
-            <p className="mt-6 max-w-md text-sm leading-relaxed opacity-85">
-              The world has frozen at the June solstice. You are a lone wanderer trying to keep the wheel of day and night in balance. Stray too far into the Long Day or sink too deep into the Hush of Night, and the vigil ends. How many days can you hold the balance?
-            </p>
-            <p className="mt-5 text-xs opacity-60 max-w-sm">Narrated entirely on your device by Gemma 4 via Google AI Edge LiteRT-LM (WebGPU). Works best in Chrome 113+ on a machine with a GPU.</p>
-            <div className="mt-8 flex flex-col gap-3 w-64">
-              <button onClick={() => start(false)} className="px-5 py-3 rounded-lg font-semibold text-white shadow-lg" style={{ background: "linear-gradient(90deg,#b45309,#1e3a8a)" }}>Begin the vigil</button>
-              {hasSave && <button onClick={() => start(true)} className="px-5 py-3 rounded-lg font-semibold border-2" style={{ borderColor: "currentColor" }}>Continue the vigil</button>}
-              <button onClick={() => start(false, true)} className="mt-1 text-xs underline opacity-60 hover:opacity-100">Try demo mode (no AI, no download)</button>
+          <div className="sv-screen-center">
+            <div className="sv-panel sv-panel--landing">
+              <img
+                src="/solstice-vigil-bg.webp"
+                alt=""
+                className="sv-panel-hero"
+                draggable={false}
+              />
+              <div className="sv-panel-body">
+                <div className="sv-divider" aria-hidden="true">☀</div>
+                <h1 className="sv-title">SOLSTICE VIGIL</h1>
+                <p className="sv-subtitle">hold the balance · the longest day, the endless turn</p>
+                <p className="sv-body" style={{ marginTop: "1.5rem", maxWidth: "28rem", marginLeft: "auto", marginRight: "auto" }}>
+                  The world has frozen at the June solstice. You are a lone wanderer trying to keep the wheel of day and night in balance. Stray too far into the Long Day or sink too deep into the Hush of Night, and the vigil ends. How many days can you hold the balance?
+                </p>
+                <p className="sv-note" style={{ marginTop: "1.25rem", maxWidth: "22rem", marginLeft: "auto", marginRight: "auto" }}>
+                  Narrated entirely on your device by Gemma 4 via Google AI Edge LiteRT-LM (WebGPU). Works best in Chrome 113+ on a machine with a GPU.
+                </p>
+                <div className="sv-actions">
+                  <button type="button" onClick={() => start(false)} className="sv-button-primary">
+                    <span aria-hidden="true">☀</span>
+                    Begin the vigil
+                  </button>
+                  {hasSave && (
+                    <button type="button" onClick={() => start(true)} className="sv-button-secondary">
+                      <span aria-hidden="true">☾</span>
+                      Continue the vigil
+                    </button>
+                  )}
+                  <button type="button" onClick={() => start(false, true)} className="sv-link-button">
+                    Try demo mode (no AI, no download)
+                  </button>
+                </div>
+                <p className="sv-footer-note">Your progress is saved locally on this device.</p>
+              </div>
             </div>
           </div>
         )}
-        {(status === "loading") && (
-          <div className="flex-1 flex flex-col items-center justify-center text-center">
-            <div className="text-6xl mb-6 animate-pulse select-none">☾</div>
-            <div className="w-72 h-2 rounded-full bg-black/20 overflow-hidden mb-4">
-              <div className="h-full transition-all duration-300" style={{ width: `${loadPct >= 1 ? 100 : Math.max(8, loadPct * 100)}%`, background: "linear-gradient(90deg,#fcd34d,#6366f1)" }} />
+        {status === "loading" && (
+          <div className="sv-screen-center">
+            <div className="sv-panel">
+              <div className="sv-loading-sigil" aria-hidden="true">☾</div>
+              <div className="sv-progress">
+                <div
+                  className="sv-progress__bar"
+                  style={{ width: `${loadPct >= 1 ? 100 : Math.max(8, loadPct * 100)}%` }}
+                />
+              </div>
+              <p className="sv-body">{loadMsg || "Preparing the vigil…"}</p>
+              {loadPct < 1 && (
+                <p className="sv-note" style={{ marginTop: "0.75rem" }}>
+                  First load fetches the on-device model (~2 GB, cached after).{" "}
+                  <button type="button" onClick={() => start(false, true)} className="sv-link-button">
+                    skip to demo mode
+                  </button>
+                </p>
+              )}
             </div>
-            <p className="text-sm opacity-80">{loadMsg || "Preparing the vigil…"}</p>
-            {loadPct < 1 && <p className="text-xs opacity-50 mt-2">First load fetches the on-device model (~2 GB, cached after). <button onClick={() => start(false, true)} className="underline">skip to demo mode</button></p>}
           </div>
         )}
         {status === "nosupport" && (
-          <div className="flex-1 flex flex-col items-center justify-center text-center">
-            <div className="text-5xl mb-4">🜂</div>
-            <h2 className="text-2xl font-bold">This vigil needs WebGPU for live narration</h2>
-            <p className="mt-3 max-w-sm opacity-80 text-sm">SOLSTICE VIGIL runs its narrator entirely on your device via WebGPU. For live AI narration, open it in Chrome 113+ on a machine with a GPU. You can still play in demo mode below — same game, hand-written scenes.</p>
-            <div className="flex gap-3 mt-6">
-              <button onClick={() => start(false, true)} className="px-4 py-2 rounded-lg font-semibold text-white" style={{ background: "linear-gradient(90deg,#b45309,#1e3a8a)" }}>Play in demo mode</button>
-              <button onClick={restart} className="px-4 py-2 rounded-lg border-2" style={{ borderColor: "currentColor" }}>Back</button>
+          <div className="sv-screen-center">
+            <div className="sv-panel">
+              <div className="sv-loading-sigil" aria-hidden="true">🜂</div>
+              <h2 className="sv-heading">This vigil needs WebGPU for live narration</h2>
+              <p className="sv-body" style={{ marginTop: "1rem", maxWidth: "24rem", marginLeft: "auto", marginRight: "auto" }}>
+                SOLSTICE VIGIL runs its narrator entirely on your device via WebGPU. For live AI narration, open it in Chrome 113+ on a machine with a GPU. You can still play in demo mode below — same game, hand-written scenes.
+              </p>
+              <div className="sv-actions sv-actions--row">
+                <button type="button" onClick={() => start(false, true)} className="sv-button-primary">
+                  Play in demo mode
+                </button>
+                <button type="button" onClick={restart} className="sv-button-secondary">
+                  Back
+                </button>
+              </div>
             </div>
           </div>
         )}
         {status === "error" && (
-          <div className="flex-1 flex flex-col items-center justify-center text-center">
-            <div className="text-5xl mb-4">⚠</div>
-            <h2 className="text-2xl font-bold">The vigil stumbled</h2>
-            <p className="mt-3 max-w-sm opacity-80 text-sm break-words">{errorMsg}</p>
-            <div className="flex gap-3 mt-6">
-              <button onClick={() => start(false)} className="px-4 py-2 rounded-lg font-semibold text-white" style={{ background: "linear-gradient(90deg,#b45309,#1e3a8a)" }}>Begin again</button>
-              <button onClick={() => start(false, true)} className="px-4 py-2 rounded-lg border-2" style={{ borderColor: "currentColor" }}>Demo mode</button>
-              <button onClick={restart} className="px-4 py-2 rounded-lg border-2" style={{ borderColor: "currentColor" }}>Back</button>
+          <div className="sv-screen-center">
+            <div className="sv-panel">
+              <div className="sv-loading-sigil" aria-hidden="true">⚠</div>
+              <h2 className="sv-heading">The vigil stumbled</h2>
+              <p className="sv-body sv-note" style={{ marginTop: "1rem", maxWidth: "24rem", marginLeft: "auto", marginRight: "auto", wordBreak: "break-word" }}>
+                {errorMsg}
+              </p>
+              <div className="sv-actions sv-actions--row">
+                <button type="button" onClick={() => start(false)} className="sv-button-primary">
+                  Begin again
+                </button>
+                <button type="button" onClick={() => start(false, true)} className="sv-button-secondary">
+                  Demo mode
+                </button>
+                <button type="button" onClick={restart} className="sv-button-secondary">
+                  Back
+                </button>
+              </div>
             </div>
           </div>
         )}
         {status === "gameover" && (
-          <div className="flex-1 flex flex-col items-center justify-center text-center" data-testid="gameover-screen">
-            <img src="/logo.png" alt="" width={128} height={128} className="mb-6 select-none w-32 h-32 animate-pulse" draggable={false} />
-            <h2 className="text-3xl font-bold mb-4">the vigil ends</h2>
-            <p className="max-w-md leading-relaxed opacity-90">{gameOverCause === "day"
-              ? "The Long Day claims you. The sun will not set, and you wander into the endless light until you are no more. The wheel has stopped."
-              : "The Hush takes you. The night deepens without end, and you sink into the cold until you are no more. The wheel has stopped."}</p>
-            <p className="mt-6 text-lg">You held the vigil for <span className="font-bold">{state.cycle < 1 ? "less than a day" : `${state.cycle} day${state.cycle === 1 ? "" : "s"}`}</span>.</p>
-            <div className="flex gap-3 mt-8">
-              <button onClick={shareVigil} className="px-5 py-3 rounded-lg font-semibold text-white shadow-lg" style={{ background: "linear-gradient(90deg,#b45309,#1e3a8a)" }}>{shareCopied ? "Copied!" : "Share your vigil"}</button>
-              <button onClick={() => start(false)} className="px-5 py-3 rounded-lg font-semibold border-2" style={{ borderColor: "currentColor" }}>Begin again</button>
+          <div className="sv-screen-center" data-testid="gameover-screen">
+            <div className="sv-panel">
+              <div className="sv-loading-sigil" aria-hidden="true">{gameOverCause === "day" ? "☀" : "☾"}</div>
+              <h2 className="sv-heading">the vigil ends</h2>
+              <p className="sv-body" style={{ marginTop: "1rem", maxWidth: "28rem", marginLeft: "auto", marginRight: "auto" }}>
+                {gameOverCause === "day"
+                  ? "The Long Day claims you. The sun will not set, and you wander into the endless light until you are no more. The wheel has stopped."
+                  : "The Hush takes you. The night deepens without end, and you sink into the cold until you are no more. The wheel has stopped."}
+              </p>
+              <p className="sv-body" style={{ marginTop: "1.5rem" }}>
+                You held the vigil for{" "}
+                <strong>{state.cycle < 1 ? "less than a day" : `${state.cycle} day${state.cycle === 1 ? "" : "s"}`}</strong>.
+              </p>
+              <div className="sv-actions sv-actions--row">
+                <button type="button" onClick={shareVigil} className="sv-button-primary">
+                  {shareCopied ? "Copied!" : "Share your vigil"}
+                </button>
+                <button type="button" onClick={() => start(false)} className="sv-button-secondary">
+                  Begin again
+                </button>
+              </div>
             </div>
           </div>
         )}
         {status === "playing" && (
-          <div className="flex-1 flex flex-col">
-            <div className="flex items-center justify-between text-xs uppercase tracking-widest opacity-80 mb-3">
-              <span data-testid="day-count">Day {state.cycle + 1}</span>
-              <span className="font-bold" data-testid="phase-label">{state.phase === "day" ? "☀ Long Day" : "☾ Hush of Night"}</span>
-              <span>&nbsp;</span>
+          <div className={`game-shell game-shell--${state.phase}`} style={{ "--w1": bg.c1, "--w2": bg.c2, "--w3": bg.c3 } as React.CSSProperties}>
+            <div className="sv-hud">
+              <span className="sv-meta" data-testid="day-count">Day {state.cycle + 1}</span>
+              <span className="sv-hud__phase" data-testid="phase-label">
+                {state.phase === "day" ? "☀ Long Day" : "☾ Hush of Night"}
+              </span>
+              <span aria-hidden="true">&nbsp;</span>
             </div>
-            <div className="mb-1 flex justify-between text-[10px] uppercase tracking-wider opacity-70">
-              <span>Day</span><span>Balance</span><span>Night</span>
+            <div className="sv-balance-labels">
+              <span className="sv-meta">Day</span>
+              <span className="sv-meta">Balance</span>
+              <span className="sv-meta">Night</span>
             </div>
-            <div className="relative h-3 rounded-full mb-1 overflow-hidden" style={{ background: "linear-gradient(90deg,#fcd34d,#f8fafc 50%,#312e81)" }} data-testid="balance-track">
-              <div data-testid="balance-marker" className="absolute top-1/2 -translate-y-1/2 -translate-x-1/2 w-5 h-5 rounded-full shadow-md flex items-center justify-center text-xs" style={{ left: `${meterPct}%`, background: state.phase === "day" ? "#fb923c" : "#1e1b4b", color: state.phase === "day" ? "#fff" : "#fde68a", transition: "left 700ms ease, background 700ms ease" }}>
+            <div className="sv-balance-track" data-testid="balance-track">
+              <div
+                data-testid="balance-marker"
+                className="sv-balance-marker"
+                style={{ left: `${meterPct}%` }}
+                aria-hidden="true"
+              >
                 {state.phase === "day" ? "☀" : "☾"}
               </div>
             </div>
-            <div className="flex justify-between items-center mb-5">
-              <span className="text-[10px] opacity-50 italic" data-testid="balance-descriptor">{balanceDescriptor(state.balance)}</span>
-              <div className="flex gap-3 items-center">
-                {demo && <span className="text-[10px] opacity-70 border border-current/30 rounded px-1.5" data-testid="demo-badge">demo</span>}
-                {Math.abs(state.balance) > 70 && <span className="text-[10px] animate-pulse opacity-90" data-testid="balance-warning">{state.balance < 0 ? "the light burns too bright…" : "the Hush presses too deep…"}</span>}
-                {state.stagnationStreak >= 2 && <span className="text-[10px] animate-pulse opacity-80" data-testid="stagnation-warning">the solstice grows restless…</span>}
-                <button onClick={restart} className="text-[10px] underline opacity-50 hover:opacity-100">restart</button>
+            <div className="sv-status-row">
+              <span className="sv-hint" data-testid="balance-descriptor">{balanceDescriptor(state.balance)}</span>
+              <div className="sv-status-actions">
+                {demo && <span className="sv-demo-badge" data-testid="demo-badge">demo</span>}
+                {Math.abs(state.balance) > 70 && (
+                  <span className={`sv-warning${state.balance > 0 ? " sv-warning--night" : ""}`} data-testid="balance-warning">
+                    {state.balance < 0 ? "the light burns too bright…" : "the Hush presses too deep…"}
+                  </span>
+                )}
+                {state.stagnationStreak >= 2 && (
+                  <span className="sv-warning" data-testid="stagnation-warning">the solstice grows restless…</span>
+                )}
+                <button type="button" onClick={restart} className="sv-link-button">restart</button>
               </div>
             </div>
-            <div className="flex-1 flex flex-col">
+            <div style={{ flex: 1, display: "flex", flexDirection: "column" }}>
               {generating && !scene && (
-                <div className="flex-1 flex flex-col items-center justify-center text-center opacity-70">
-                  <p className="italic">{streamHint || "the world holds its breath…"}</p>
-                  <button onClick={interrupt} className="mt-4 text-[10px] underline opacity-60 hover:opacity-100">interrupt</button>
+                <div className="sv-screen-center">
+                  <p className="sv-hint">{streamHint || "the world holds its breath…"}</p>
+                  <button type="button" onClick={interrupt} className="sv-link-button" style={{ marginTop: "1rem" }}>
+                    interrupt
+                  </button>
                 </div>
               )}
               {scene && (
-                <div className="flex flex-col flex-1">
-                  <p data-testid="narration" className="text-lg leading-relaxed mb-7" style={{ fontFamily: "Georgia, 'Times New Roman', serif" }}>{scene.narration}</p>
-                  <div data-testid="choices" className="flex flex-col gap-3 mt-auto" role="group" aria-label="Scene choices">
+                <div style={{ display: "flex", flexDirection: "column", flex: 1 }}>
+                  <div className="sv-narrative-card">
+                    <p data-testid="narration" className="sv-narrative">{scene.narration}</p>
+                  </div>
+                  <div data-testid="choices" className="sv-choices" role="group" aria-label="Scene choices">
                     {scene.actions.map((a, i) => (
-                      <button key={i} onClick={() => choose(a)} disabled={generating} className="text-left px-4 py-3 rounded-lg border-2 hover:scale-[1.01] active:scale-100 transition disabled:opacity-40" style={{ borderColor: "currentColor", background: "rgba(0,0,0,0.12)" }}>
-                        <span className="text-sm">{a.label}</span>
+                      <button
+                        key={i}
+                        type="button"
+                        onClick={() => choose(a)}
+                        disabled={generating}
+                        className="sv-choice-button"
+                      >
+                        <span className="sv-choice-icon" aria-hidden="true">{toneIcon(a.tone)}</span>
+                        <span>{a.label}</span>
                       </button>
                     ))}
                   </div>
                 </div>
               )}
-              {generating && scene && <p className="mt-4 text-center text-xs italic opacity-50">{streamHint || "the wheel turns…"}</p>}
+              {generating && scene && (
+                <p className="sv-hint" style={{ marginTop: "1rem", textAlign: "center" }}>
+                  {streamHint || "the wheel turns…"}
+                </p>
+              )}
             </div>
           </div>
         )}
