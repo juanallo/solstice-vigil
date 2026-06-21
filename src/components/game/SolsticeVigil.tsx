@@ -2,12 +2,26 @@ import { useState, useEffect, useRef, useCallback } from "react";
 import { IDENTITIES, identityTitle } from "../../data/identities";
 import { useGameAudio } from "../../hooks/useGameAudio";
 import {
-  buildIdentityPromptBlock,
   migrateIdentityFields,
   updateIdentity,
   type IdentityState,
   type PendingReveal,
 } from "../../lib/identity";
+import {
+  buildTurnPrompt,
+  balanceDescriptor,
+  HISTORY_TURNS,
+  SYSTEM_PROMPT_CONTINUITY,
+  type Archetype,
+  type Phase,
+  type Tone,
+  type TurnRecord,
+} from "../../lib/prompt";
+import {
+  migrateStoryMemory,
+  updateStoryMemory,
+  type StoryMemory,
+} from "../../lib/story-memory";
 
 // SOLSTICE VIGIL — a never-ending solo RPG.
 // On-device LLM (Google AI Edge LiteRT-LM, Gemma 4 E2B) renders each scene.
@@ -19,20 +33,17 @@ const MODEL_MAGIC = "LITERTLM"; // first 8 bytes of every .litertlm file; the en
 const LITERT_CDN = "https://cdn.jsdelivr.net/npm/@litert-lm/core/+esm";
 const CACHE_NAME = "solstice-vigil", SAVE_KEY = "solstice-vigil-save";
 // 1 choice per phase; 2 choices complete one scored day
-const PHASE_LENGTH = 1, EXTREME = 100, START_BALANCE = 0, STAGNATION_LIMIT = 3, HISTORY_TURNS = 6, ESCALATION = 0.05;
+const PHASE_LENGTH = 1, EXTREME = 100, START_BALANCE = 0, STAGNATION_LIMIT = 3, ESCALATION = 0.05;
 
-type Phase = "day" | "night";
-type Archetype = "Threshold" | "Wanderer" | "Omen" | "Temptation" | "Lurch";
 type Status = "title" | "checking" | "loading" | "playing" | "reveal" | "gameover" | "nosupport" | "error";
-type Tone = "yang" | "yin" | "neutral";
 type GameOverCause = "day" | "night";
 interface Action { label: string; balanceShift: number; tone: Tone; }
 interface Scene { archetype: Archetype; narration: string; actions: Action[]; }
-interface TurnRecord { archetype: Archetype; phase: Phase; narration: string; chosenLabel: string; balanceShift: number; tone: Tone; }
 interface GameState {
   cycle: number; turn: number; phase: Phase; balance: number;
   lastTone: Tone | null; stagnationStreak: number; lastArchetype: Archetype | null;
-  history: string[]; rawTurns: TurnRecord[];
+  rawTurns: TurnRecord[];
+  storyMemory: StoryMemory;
   identity: IdentityState;
   pendingReveal: PendingReveal | null;
   lastRevealCycle: number;
@@ -66,6 +77,7 @@ const SYSTEM_PROMPT = [
 "Never invent or change state. Never narrate the wanderer's death or write 'Game over' — the engine decides endings. Keep each scene an open moment of choice.",
 "",
 "NPCs may sense the wanderer's bearing and past names poetically when given IDENTITY context — but never mention meters, tiers, or game systems.",
+SYSTEM_PROMPT_CONTINUITY,
 ].join("\n");
 
 const FALLBACK: Record<Archetype, (p: Phase) => Scene> = {
@@ -122,7 +134,8 @@ function freshState(): GameState {
   return {
     cycle: 0, turn: 0, phase: "day", balance: START_BALANCE,
     lastTone: null, stagnationStreak: 0, lastArchetype: null,
-    history: [], rawTurns: [],
+    rawTurns: [],
+    storyMemory: migrateStoryMemory({}),
     ...migrateIdentityFields({}),
   };
 }
@@ -140,11 +153,11 @@ function loadSave(): GameState | null {
       lastTone: raw.lastTone ?? null,
       stagnationStreak: raw.stagnationStreak ?? 0,
       lastArchetype: raw.lastArchetype ?? null,
-      history: raw.history ?? [],
       rawTurns: (raw.rawTurns ?? []).map((t) => ({
         ...t,
         tone: t.tone ?? (t.balanceShift < 0 ? "yang" : t.balanceShift > 0 ? "yin" : "neutral"),
       })),
+      storyMemory: migrateStoryMemory(raw as Partial<GameState>),
       ...migrateIdentityFields(raw),
     };
   } catch { return null; }
@@ -152,28 +165,6 @@ function loadSave(): GameState | null {
 function saveState(s: GameState) { try { localStorage.setItem(SAVE_KEY, JSON.stringify(s)); } catch { /* ignore */ } }
 function clearSave() { try { localStorage.removeItem(SAVE_KEY); } catch { /* ignore */ } }
 
-function balanceDescriptor(b: number) {
-  if (b <= -60) return "deep in the Long Day, the sun glutted and still";
-  if (b <= -20) return "leaning toward the Long Day";
-  if (b < 20) return "near balance, the wheel almost turning";
-  if (b < 60) return "leaning toward the Hush of Night";
-  return "deep in the Hush, the night endless";
-}
-function buildTurnPrompt(s: GameState, arch: Archetype) {
-  const recent = s.rawTurns.slice(-HISTORY_TURNS)
-    .map((t) => `(${t.phase}) ${t.narration.slice(0, 80)} -> chose: "${t.chosenLabel}" (${t.balanceShift > 0 ? "+" : ""}${t.balanceShift})`)
-    .join("\n");
-  const identityBlock = buildIdentityPromptBlock(s);
-  return [
-    `STATE — Day ${s.cycle + 1}. Phase: ${s.phase === "day" ? "DAY (the Long Day)" : "NIGHT (the Hush of Night)"}.`,
-    `The world ${balanceDescriptor(s.balance)} (balance ${s.balance}).`,
-    `Days survived so far: ${s.cycle}.`,
-    recent ? `RECENT TURNS —\n${recent}` : "RECENT TURNS — (the vigil has just begun)",
-    identityBlock ?? "",
-    `TASK — Render a ${arch} encounter for the current ${s.phase.toUpperCase()} phase.`,
-    `Output the JSON object now.`,
-  ].filter(Boolean).join("\n");
-}
 function pickArchetype(s: GameState): Archetype {
   if (s.stagnationStreak >= STAGNATION_LIMIT) return "Lurch";
   const pool: Archetype[] = ARCHETYPES.filter((a) => a !== s.lastArchetype);
@@ -389,7 +380,20 @@ export default function SolsticeVigil() {
     const esc = 1 + ESCALATION * Math.floor(state.turn / 10);
     const newBalance = clamp(state.balance + Math.round(action.balanceShift * esc), -EXTREME, EXTREME);
     const newRaw: TurnRecord = { archetype: chosen.archetype, phase: state.phase, narration: chosen.narration, chosenLabel: action.label, balanceShift: action.balanceShift, tone: action.tone };
-    let next: GameState = { ...state, turn: state.turn + 1, balance: newBalance, lastArchetype: chosen.archetype, rawTurns: [...state.rawTurns, newRaw].slice(-(HISTORY_TURNS + 2)), history: [...state.history, `${state.phase}: ${action.label}`].slice(-12) };
+    let next: GameState = {
+      ...state,
+      turn: state.turn + 1,
+      balance: newBalance,
+      lastArchetype: chosen.archetype,
+      rawTurns: [...state.rawTurns, newRaw].slice(-(HISTORY_TURNS + 2)),
+      storyMemory: updateStoryMemory(state.storyMemory, {
+        cycle: state.cycle,
+        turn: state.turn + 1,
+        phase: state.phase,
+        narration: chosen.narration,
+        chosenLabel: action.label,
+      }),
+    };
     if (chosen.archetype === "Lurch") next.stagnationStreak = 0;
     else if (action.tone === "neutral") next.stagnationStreak = Math.max(0, state.stagnationStreak - 1);
     else if (action.tone === state.lastTone) next.stagnationStreak = state.stagnationStreak + 1;

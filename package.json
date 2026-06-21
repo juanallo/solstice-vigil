@@ -7,8 +7,9 @@
     "dev": "astro dev",
     "build": "astro build",
     "preview": "astro preview",
-    "test": "npm run test:e2e",
-    "test:e2e": "playwright test",
+    "test": "npm run test:unit && npm run test:e2e",
+    "test:unit": "PLAYWRIGHT_SKIP_WEBSERVER=1 playwright test --project=unit",
+    "test:e2e": "playwright test --project=e2e",
     "test:e2e:ui": "playwright test --ui",
     "test:e2e:report": "playwright show-report"
   },

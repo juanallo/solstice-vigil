@@ -1,4 +1,6 @@
 import type { Page } from "@playwright/test";
+import type { TurnRecord } from "../../src/lib/prompt";
+import type { StoryMemory } from "../../src/lib/story-memory";
 import { DEMO_QUERY, SAVE_KEY } from "./constants";
 
 export interface GameStateFixture {
@@ -9,8 +11,8 @@ export interface GameStateFixture {
   lastTone: "yang" | "yin" | "neutral" | null;
   stagnationStreak: number;
   lastArchetype: string | null;
-  history: string[];
-  rawTurns: unknown[];
+  rawTurns: TurnRecord[];
+  storyMemory: StoryMemory;
   identity?: {
     current: string | null;
     history: { cycle: number; id: string; title: string }[];
@@ -19,7 +21,7 @@ export interface GameStateFixture {
   lastRevealCycle?: number;
 }
 
-function makeYangTurns(n: number) {
+function makeYangTurns(n: number): TurnRecord[] {
   return Array.from({ length: n }, () => ({
     archetype: "Temptation",
     phase: "day" as const,
@@ -30,6 +32,57 @@ function makeYangTurns(n: number) {
   }));
 }
 
+export const sampleRawTurns: TurnRecord[] = [
+  {
+    archetype: "Threshold",
+    phase: "day",
+    narration:
+      'A bridge of frozen light spans a chasm where the sun has stopped sinking. A gatekeeper stands at its center, wreathed in halted flame, neither welcoming nor forbidding. "Cross, or turn back," it says, and means both.',
+    chosenLabel: "Stride boldly into the unsetting light",
+    balanceShift: -38,
+    tone: "yang",
+  },
+  {
+    archetype: "Wanderer",
+    phase: "night",
+    narration:
+      'A pale wanderer beckons from a doorway lit by a single steady candle. "Come in," she says. "Warmth costs a little of your night."',
+    chosenLabel: "Bargain at the threshold",
+    balanceShift: 8,
+    tone: "neutral",
+  },
+];
+
+export const sampleStoryMemory: StoryMemory = {
+  entities: [
+    {
+      id: "gatekeeper",
+      kind: "npc",
+      name: "gatekeeper",
+      firstCycle: 0,
+      lastCycle: 0,
+      tags: [],
+    },
+    {
+      id: "frozen-light",
+      kind: "place",
+      name: "frozen light",
+      firstCycle: 0,
+      lastCycle: 0,
+      tags: [],
+    },
+  ],
+  beats: [
+    {
+      cycle: 0,
+      turn: 1,
+      summary:
+        '(day) A bridge of frozen light spans a chasm where the sun has stopped sinking. A gatekeeper stands at its center... → "Stride boldly into the unsetting light"',
+      entityIds: ["gatekeeper", "frozen-light"],
+    },
+  ],
+};
+
 export const freshSave: GameStateFixture = {
   cycle: 0,
   turn: 0,
@@ -38,8 +91,8 @@ export const freshSave: GameStateFixture = {
   lastTone: null,
   stagnationStreak: 0,
   lastArchetype: null,
-  history: [],
   rawTurns: [],
+  storyMemory: { entities: [], beats: [] },
   identity: { current: null, history: [] },
   pendingReveal: null,
   lastRevealCycle: -5,
@@ -53,8 +106,8 @@ export const longDayWarningSave: GameStateFixture = {
   lastTone: "yang",
   stagnationStreak: 2,
   lastArchetype: "Threshold",
-  history: ["day: Stride boldly into the unsetting light"],
-  rawTurns: [],
+  rawTurns: [sampleRawTurns[0]],
+  storyMemory: { entities: [], beats: [] },
 };
 
 export const hushWarningSave: GameStateFixture = {
@@ -65,8 +118,18 @@ export const hushWarningSave: GameStateFixture = {
   lastTone: "yin",
   stagnationStreak: 2,
   lastArchetype: "Threshold",
-  history: ["night: Descend into the deep Hush"],
-  rawTurns: [],
+  rawTurns: [
+    {
+      archetype: "Threshold",
+      phase: "night",
+      narration:
+        "A threshold of black ice marks where the Hush begins. Two roads fork beneath a moon that has stopped climbing.",
+      chosenLabel: "Descend into the deep Hush",
+      balanceShift: 38,
+      tone: "yin",
+    },
+  ],
+  storyMemory: { entities: [], beats: [] },
 };
 
 export const nearGameOverDaySave: GameStateFixture = {
@@ -77,8 +140,8 @@ export const nearGameOverDaySave: GameStateFixture = {
   lastTone: "yang",
   stagnationStreak: 1,
   lastArchetype: "Threshold",
-  history: [],
   rawTurns: [],
+  storyMemory: { entities: [], beats: [] },
 };
 
 export const nearGameOverNightSave: GameStateFixture = {
@@ -89,8 +152,8 @@ export const nearGameOverNightSave: GameStateFixture = {
   lastTone: "yin",
   stagnationStreak: 1,
   lastArchetype: "Threshold",
-  history: [],
   rawTurns: [],
+  storyMemory: { entities: [], beats: [] },
 };
 
 export const midGameSave: GameStateFixture = {
@@ -101,8 +164,8 @@ export const midGameSave: GameStateFixture = {
   lastTone: "yang",
   stagnationStreak: 1,
   lastArchetype: "Wanderer",
-  history: ["day: Share her water and rest", "night: Bargain at the threshold"],
-  rawTurns: [],
+  rawTurns: sampleRawTurns,
+  storyMemory: sampleStoryMemory,
   identity: { current: null, history: [] },
   pendingReveal: null,
   lastRevealCycle: -5,
@@ -116,8 +179,8 @@ export const identityHeavyLightSave: GameStateFixture = {
   lastTone: "yang",
   stagnationStreak: 1,
   lastArchetype: "Temptation",
-  history: [],
   rawTurns: makeYangTurns(24),
+  storyMemory: { entities: [], beats: [] },
   identity: { current: null, history: [] },
   pendingReveal: null,
   lastRevealCycle: -5,
@@ -131,8 +194,8 @@ export const gameOverWithIdentitySave: GameStateFixture = {
   lastTone: "yang",
   stagnationStreak: 1,
   lastArchetype: "Temptation",
-  history: [],
   rawTurns: makeYangTurns(24),
+  storyMemory: { entities: [], beats: [] },
   identity: {
     current: "flame-herald",
     history: [

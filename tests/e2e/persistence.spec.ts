@@ -74,6 +74,10 @@ test.describe("persistence", () => {
       turn: expect.any(Number),
       phase: expect.stringMatching(/day|night/),
       balance: expect.any(Number),
+      storyMemory: expect.objectContaining({
+        entities: expect.any(Array),
+        beats: expect.any(Array),
+      }),
       identity: expect.objectContaining({
         current: null,
         history: expect.any(Array),
