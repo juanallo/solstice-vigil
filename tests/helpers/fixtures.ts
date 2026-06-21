@@ -143,7 +143,7 @@ export async function clickFirstChoice(page: Page) {
 
 export async function clickStrongestYangChoice(page: Page) {
   const yangPattern =
-    /Stride boldly|Feed the brazier|Stoke it further|Press on across|Will the sun to hold|Take the quick east|Enter, surrender|Welcome the foreseen dawn|Let the lurch carry you into day|Open your eyes to the sudden gold/i;
+    /Stride boldly|Feed the brazier|Stoke it further|Press on across|Will the sun to hold|Take the quick east|Enter, surrender|Welcome the foreseen dawn|Turn from the pool|Claw back toward the failing light|Let the lurch carry you into day|Open your eyes to the sudden gold/i;
   const match = page.getByRole("button", { name: yangPattern });
   if ((await match.count()) > 0) {
     await match.first().click();

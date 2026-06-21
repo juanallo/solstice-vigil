@@ -3,6 +3,7 @@ import {
   clearSave,
   clickFirstChoice,
   clickNeutralChoice,
+  clickStrongestYangChoice,
   getBalanceMarkerLeft,
   seedRandom,
   startDemo,
@@ -40,23 +41,21 @@ test.describe("game loop", () => {
 
     await expect(page.getByTestId("balance-descriptor")).toHaveText(/near balance/i);
 
-    await clickFirstChoice(page);
+    await clickStrongestYangChoice(page);
     await waitForScene(page);
-    await clickFirstChoice(page);
+    await clickStrongestYangChoice(page);
     await waitForScene(page);
 
     await expect(page.getByTestId("balance-descriptor")).toHaveText(/Long Day/i);
   });
 
-  test("phase flips after five turns", async ({ page }) => {
+  test("phase flips after one turn", async ({ page }) => {
     await startDemo(page);
 
     await expect(page.getByTestId("phase-label")).toHaveText("☀ Long Day");
 
-    for (let i = 0; i < 5; i++) {
-      await clickFirstChoice(page);
-      await waitForScene(page);
-    }
+    await clickFirstChoice(page);
+    await waitForScene(page);
 
     await expect(page.getByTestId("phase-label")).toHaveText("☾ Hush of Night");
   });
@@ -66,7 +65,7 @@ test.describe("game loop", () => {
 
     await expect(page.getByTestId("day-count")).toHaveText("Day 1");
 
-    for (let i = 0; i < 10; i++) {
+    for (let i = 0; i < 2; i++) {
       await clickNeutralChoice(page);
       await waitForScene(page);
     }

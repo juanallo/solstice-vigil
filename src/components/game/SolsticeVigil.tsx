@@ -9,7 +9,8 @@ const MODEL_URL = "https://huggingface.co/litert-community/gemma-4-E2B-it-litert
 const MODEL_MAGIC = "LITERTLM"; // first 8 bytes of every .litertlm file; the engine checks this
 const LITERT_CDN = "https://cdn.jsdelivr.net/npm/@litert-lm/core/+esm";
 const CACHE_NAME = "solstice-vigil", SAVE_KEY = "solstice-vigil-save";
-const PHASE_LENGTH = 5, EXTREME = 100, START_BALANCE = 0, STAGNATION_LIMIT = 3, HISTORY_TURNS = 6, ESCALATION = 0.05;
+// 1 choice per phase; 2 choices complete one scored day
+const PHASE_LENGTH = 1, EXTREME = 100, START_BALANCE = 0, STAGNATION_LIMIT = 3, HISTORY_TURNS = 6, ESCALATION = 0.05;
 
 type Phase = "day" | "night";
 type Archetype = "Threshold" | "Wanderer" | "Omen" | "Temptation" | "Lurch";
@@ -336,8 +337,8 @@ export default function SolsticeVigil() {
   const choose = useCallback(async (action: Action) => {
     if (!scene || generating) return;
     const chosen = scene;
-    // Subtle escalation: the world grows more extreme each day, so the vigil eventually ends.
-    const esc = 1 + ESCALATION * state.cycle;
+    // Subtle escalation: the world grows more extreme over time, so the vigil eventually ends.
+    const esc = 1 + ESCALATION * Math.floor(state.turn / 10);
     const newBalance = clamp(state.balance + Math.round(action.balanceShift * esc), -EXTREME, EXTREME);
     const newRaw: TurnRecord = { archetype: chosen.archetype, phase: state.phase, narration: chosen.narration, chosenLabel: action.label, balanceShift: action.balanceShift };
     let next: GameState = { ...state, turn: state.turn + 1, balance: newBalance, lastArchetype: chosen.archetype, rawTurns: [...state.rawTurns, newRaw].slice(-(HISTORY_TURNS + 2)), history: [...state.history, `${state.phase}: ${action.label}`].slice(-12) };
