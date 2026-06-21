@@ -41,6 +41,66 @@ body {
   color: var(--sv-text);
 }
 
+.sv-audio-toggle {
+  position: fixed;
+  top: 1rem;
+  right: 1rem;
+  z-index: 100;
+  font-family: var(--font-ui);
+  font-size: 1.1rem;
+  line-height: 1;
+  width: 2.25rem;
+  height: 2.25rem;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  border: 1px solid var(--sv-border);
+  border-radius: 3px;
+  background: var(--sv-panel);
+  color: var(--sv-gold);
+  backdrop-filter: blur(10px);
+  -webkit-backdrop-filter: blur(10px);
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.35);
+  transition: border-color 300ms ease, color 300ms ease, box-shadow 300ms ease;
+}
+
+.sv-audio-toggle__icon {
+  position: relative;
+  display: block;
+  line-height: 1;
+}
+
+.sv-audio-toggle--muted .sv-audio-toggle__icon::after {
+  content: "";
+  position: absolute;
+  left: -0.35rem;
+  right: -0.35rem;
+  top: 50%;
+  height: 2px;
+  margin-top: -1px;
+  background: currentColor;
+  transform: rotate(-38deg);
+  border-radius: 1px;
+  pointer-events: none;
+}
+
+.sv-audio-toggle:hover {
+  color: var(--sv-gold-bright);
+  border-color: var(--sv-gold-bright);
+}
+
+.sv-audio-toggle:focus-visible {
+  outline: 2px solid var(--sv-gold-bright);
+  outline-offset: 2px;
+}
+
+.sv-audio-toggle--muted,
+.sv-audio-toggle[aria-pressed="true"] {
+  color: var(--sv-text-muted);
+  border-color: rgba(169, 143, 101, 0.5);
+}
+
 .sv-container {
   position: relative;
   z-index: 10;

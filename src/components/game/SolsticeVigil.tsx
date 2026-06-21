@@ -1,5 +1,6 @@
 import { useState, useEffect, useRef, useCallback } from "react";
 import { IDENTITIES, identityTitle } from "../../data/identities";
+import { useGameAudio } from "../../hooks/useGameAudio";
 import {
   buildIdentityPromptBlock,
   migrateIdentityFields,
@@ -255,6 +256,7 @@ export default function SolsticeVigil() {
   const cancelRef = useRef(false);
   const busyRef = useRef(false);
   const demoRef = useRef(false);
+  const { audioEnabled, toggleAudio, unlockAudio } = useGameAudio(status === "title");
 
   useEffect(() => {
     setHasSave(!!loadSave());
@@ -358,6 +360,7 @@ export default function SolsticeVigil() {
     }
   }, [generateScene, initEngine]);
   const start = useCallback(async (resume: boolean, useDemo = false) => {
+    unlockAudio();
     setErrorMsg("");
     const wantDemo = useDemo || demoRef.current;
     let s: GameState;
@@ -376,9 +379,10 @@ export default function SolsticeVigil() {
     setState(s);
     try { await initEngine(); setStatus(s.pendingReveal ? "reveal" : "playing"); if (!s.pendingReveal) await runTurn(s); }
     catch (e: any) { setErrorMsg(e?.message || String(e)); setStatus("error"); }
-  }, [initEngine, runTurn]);
+  }, [initEngine, runTurn, unlockAudio]);
 
   const choose = useCallback(async (action: Action) => {
+    unlockAudio();
     if (!scene || generating) return;
     const chosen = scene;
     // Subtle escalation: the world grows more extreme over time, so the vigil eventually ends.
@@ -413,10 +417,13 @@ export default function SolsticeVigil() {
       return;
     }
     await runTurn(next);
-  }, [scene, generating, state, runTurn]);
+  }, [scene, generating, state, runTurn, unlockAudio]);
 
   const interrupt = useCallback(() => { cancelRef.current = true; }, []);
-  const restart = useCallback(() => { clearSave(); setHasSave(false); setState(freshState()); setScene(null); setGameOverCause(null); setShareCopied(false); setStatus("title"); }, []);
+  const restart = useCallback(() => {
+    unlockAudio();
+    clearSave(); setHasSave(false); setState(freshState()); setScene(null); setGameOverCause(null); setShareCopied(false); setStatus("title");
+  }, [unlockAudio]);
 
   const shareText = useCallback(async (text: string) => {
     const url = "https://solstice-vigil-jalloron.zocomputer.io";
@@ -449,12 +456,13 @@ export default function SolsticeVigil() {
   }, [state.pendingReveal, shareText]);
 
   const continueFromReveal = useCallback(async () => {
+    unlockAudio();
     const next = { ...state, pendingReveal: null };
     setState(next);
     saveState(next);
     setStatus("playing");
     await runTurn(next);
-  }, [state, runTurn]);
+  }, [state, runTurn, unlockAudio]);
   const bg = worldBg(state.phase, state.balance);
   const meterPct = ((state.balance + EXTREME) / (2 * EXTREME)) * 100;
   const phaseTint = Math.abs(state.balance) / EXTREME;
@@ -470,6 +478,17 @@ export default function SolsticeVigil() {
       className="sv-root"
       style={{ "--phase-tint": phaseTint } as React.CSSProperties}
     >
+      <button
+        type="button"
+        className={`sv-audio-toggle${audioEnabled ? "" : " sv-audio-toggle--muted"}`}
+        onClick={toggleAudio}
+        aria-pressed={!audioEnabled}
+        aria-label={audioEnabled ? "Turn off music" : "Turn on music"}
+        data-testid="audio-toggle"
+        data-muted={!audioEnabled}
+      >
+        <span className="sv-audio-toggle__icon" aria-hidden="true">♪</span>
+      </button>
       <div className={`sv-container${status === "title" || status === "loading" || status === "nosupport" || status === "error" || status === "gameover" || status === "reveal" ? " sv-container--narrow" : ""}`}>
         {status === "title" && (
           <div className="sv-screen-center">

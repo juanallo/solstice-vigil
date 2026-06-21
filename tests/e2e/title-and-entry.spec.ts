@@ -50,4 +50,42 @@ test.describe("title and entry", () => {
     await expect(page.getByTestId("narration")).not.toBeEmpty();
     await expect(page.getByTestId("choices").locator("button")).toHaveCount(3);
   });
+
+  test("audio toggle is visible and toggles mute state", async ({ page }) => {
+    await gotoTitle(page);
+
+    const toggle = page.getByTestId("audio-toggle");
+    await expect(toggle).toBeVisible();
+    await expect(toggle).toHaveAttribute("aria-pressed", "false");
+    await expect(toggle).toHaveAttribute("data-muted", "false");
+    await expect(toggle).not.toHaveClass(/sv-audio-toggle--muted/);
+
+    await toggle.click();
+    await expect(toggle).toHaveAttribute("aria-pressed", "true");
+    await expect(toggle).toHaveAttribute("data-muted", "true");
+    await expect(toggle).toHaveClass(/sv-audio-toggle--muted/);
+    await expect(toggle).toHaveAttribute("aria-label", "Turn on music");
+
+    await toggle.click();
+    await expect(toggle).toHaveAttribute("aria-pressed", "false");
+    await expect(toggle).toHaveAttribute("data-muted", "false");
+    await expect(toggle).toHaveAttribute("aria-label", "Turn off music");
+  });
+
+  test("audio mute preference persists in localStorage", async ({ page }) => {
+    await gotoTitle(page);
+
+    const toggle = page.getByTestId("audio-toggle");
+    await toggle.click();
+    await expect(toggle).toHaveAttribute("data-muted", "true");
+
+    await page.reload();
+    await expect(toggle).toHaveAttribute("data-muted", "true");
+    await expect(toggle).toHaveAttribute("aria-pressed", "true");
+
+    await toggle.click();
+    await page.reload();
+    await expect(toggle).toHaveAttribute("data-muted", "false");
+    await expect(toggle).toHaveAttribute("aria-pressed", "false");
+  });
 });
