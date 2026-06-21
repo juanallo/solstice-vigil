@@ -2,6 +2,7 @@ import { useState, useEffect, useRef, useCallback } from "react";
 import { ENCOUNTERS, encounterKindLabel, encounterTitle, type EncounterId } from "../../data/encounters";
 import { IDENTITIES, identityIcon, identityTitle } from "../../data/identities";
 import { useGameAudio } from "../../hooks/useGameAudio";
+import { useSpeechNarration } from "../../hooks/useSpeechNarration";
 import {
   buildRareEncounterPrompt,
   dismissDiscovery,
@@ -269,7 +270,28 @@ export default function SolsticeVigil() {
   const cancelRef = useRef(false);
   const busyRef = useRef(false);
   const demoRef = useRef(false);
-  const { audioEnabled, toggleAudio, unlockAudio } = useGameAudio(status === "title");
+  const { audioEnabled, toggleAudio, unlockAudio, duckMusic } = useGameAudio(status === "title");
+  const {
+    supported: speechSupported,
+    speaking,
+    autoPlayEnabled,
+    toggleAutoPlay,
+    speak,
+    stop,
+  } = useSpeechNarration({
+    onSpeakStart: () => duckMusic(true),
+    onSpeakEnd: () => duckMusic(false),
+  });
+
+  useEffect(() => {
+    if (status !== "playing" || !scene?.narration || !speechSupported || !autoPlayEnabled) return;
+    speak(scene.narration);
+  }, [status, scene?.narration, speechSupported, autoPlayEnabled, speak]);
+
+  useEffect(() => {
+    if (status === "playing") return;
+    stop();
+  }, [status, stop]);
 
   const transitionStatus = useCallback((next: Status) => {
     return withViewTransition(() => setStatus(next));
@@ -926,6 +948,31 @@ export default function SolsticeVigil() {
               {scene && (
                 <div className="sv-scene-content" style={{ display: "flex", flexDirection: "column", flex: 1 }}>
                   <div className="sv-narrative-card">
+                    {speechSupported && (
+                      <>
+                        <label className="sv-narration-autoplay">
+                          <input
+                            type="checkbox"
+                            checked={autoPlayEnabled}
+                            onChange={toggleAutoPlay}
+                            data-testid="narration-autoplay"
+                          />
+                          <span>Auto-read scenes</span>
+                        </label>
+                        <button
+                          type="button"
+                          className={`sv-narration-play${speaking ? " sv-narration-play--speaking" : ""}`}
+                          onClick={() => (speaking ? stop() : speak(scene.narration))}
+                          aria-pressed={speaking}
+                          aria-label={speaking ? "Stop narration" : "Listen to narration"}
+                          data-testid="narration-play"
+                        >
+                          <span className="sv-narration-play__icon" aria-hidden="true">
+                            {speaking ? "◼" : "▶"}
+                          </span>
+                        </button>
+                      </>
+                    )}
                     <p data-testid="narration" className="sv-narrative">{scene.narration}</p>
                   </div>
                   <div data-testid="choices" className="sv-choices" role="group" aria-label="Scene choices">

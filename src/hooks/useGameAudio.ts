@@ -3,7 +3,8 @@ import titleSrc from "../../music/The_Wheel_of_Sediment.mp3?url";
 import gameSrc from "../../music/Vigil_of_the_Still_Valley.mp3?url";
 
 const MUTE_KEY = "solstice-vigil-audio-muted";
-const VOLUME = 0.6;
+export const VOLUME = 0.6;
+export const DUCKED_VOLUME = 0.18;
 
 function loadMuted(): boolean {
   try {
@@ -23,10 +24,11 @@ export function useGameAudio(isTitleScreen: boolean) {
   const [audioEnabled, setAudioEnabled] = useState(() => !loadMuted());
   const audioRef = useRef<HTMLAudioElement | null>(null);
   const blockedRef = useRef(false);
+  const duckedRef = useRef(false);
 
   useEffect(() => {
     const audio = new Audio();
-    audio.volume = VOLUME;
+    audio.volume = duckedRef.current ? DUCKED_VOLUME : VOLUME;
     audioRef.current = audio;
     return () => {
       audio.pause();
@@ -51,6 +53,7 @@ export function useGameAudio(isTitleScreen: boolean) {
       audio.src = isTitleScreen ? titleSrc : gameSrc;
       audio.dataset.track = track;
       audio.currentTime = 0;
+      audio.volume = duckedRef.current ? DUCKED_VOLUME : VOLUME;
     }
 
     audio.play().then(() => {
@@ -77,5 +80,12 @@ export function useGameAudio(isTitleScreen: boolean) {
     });
   }, []);
 
-  return { audioEnabled, toggleAudio, unlockAudio };
+  const duckMusic = useCallback((duck: boolean) => {
+    duckedRef.current = duck;
+    const audio = audioRef.current;
+    if (!audio) return;
+    audio.volume = duck ? DUCKED_VOLUME : VOLUME;
+  }, []);
+
+  return { audioEnabled, toggleAudio, unlockAudio, duckMusic };
 }
