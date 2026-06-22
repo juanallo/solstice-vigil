@@ -21,8 +21,8 @@
     "demo:final:mobile:render": "node demo-final/render-mobile.mjs"
   },
   "keywords": [],
-  "author": "",
-  "license": "ISC",
+  "author": "Juan Manuel Allo Ron",
+  "license": "MIT",
   "dependencies": {
     "@astrojs/react": "^4.4.2",
     "astro": "^5.16.6",

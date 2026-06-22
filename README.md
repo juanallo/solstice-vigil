@@ -107,6 +107,10 @@ Outputs: `demo-final/solstice-vigil-demo-final.mp4` and `demo-final/solstice-vig
 - [`docs/design.md`](docs/design.md) — visual and UX spec
 - [`docs/improvements.md`](docs/improvements.md) — follow-up ideas
 
+## License
+
+[MIT](LICENSE)
+
 ---
 
 The wheel turns.
