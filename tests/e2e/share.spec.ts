@@ -27,7 +27,7 @@ test.describe("share", () => {
 
     const clipboardText = await page.evaluate(async () => navigator.clipboard.readText());
     expect(clipboardText).toMatch(/held the solstice vigil/i);
-    expect(clipboardText).toMatch(/solstice-vigil-jalloron\.zocomputer\.io/);
+    expect(clipboardText).toMatch(/solstice-vigil\.vercel\.app/);
   });
 
   test("share includes identity title when the wanderer had a name", async ({ page, context }) => {

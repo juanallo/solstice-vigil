@@ -63,6 +63,6 @@ test.describe("identity reveal", () => {
     const clipboardText = await page.evaluate(async () => navigator.clipboard.readText());
     expect(clipboardText).toMatch(/Cycle 12/i);
     expect(clipboardText).toMatch(/SOLSTICE VIGIL/i);
-    expect(clipboardText).toMatch(/solstice-vigil-jalloron\.zocomputer\.io/);
+    expect(clipboardText).toMatch(/solstice-vigil\.vercel\.app/);
   });
 });

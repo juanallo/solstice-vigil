@@ -2,7 +2,7 @@
 
 A solo narrative RPG about holding the balance between the Long Day and the Hush of Night. At the June solstice, the sun stopped setting — you are the wanderer trying to keep day and night from tipping over completely.
 
-**[Play it →](https://solstice-vigil-jalloron.zocomputer.io)**
+**[Play it →](https://solstice-vigil.vercel.app/)**
 
 Built for the [DEV June Solstice Game Jam](https://dev.to/challenges/june-game-jam-2026-06-03). See [`challenge.md`](challenge.md) for the full submission write-up.
 

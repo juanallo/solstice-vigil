@@ -372,7 +372,7 @@ export default function SolsticeVigil() {
     const daysText = days < 1 ? "less than a day" : `${days} day${days === 1 ? "" : "s"}`;
     const cause = gameOverCause === "day" ? "the Long Day" : "the Hush of Night";
     const text = `I held the solstice vigil for ${daysText} before ${cause} claimed me. How long can you hold the wheel?`;
-    const url = "https://solstice-vigil-jalloron.zocomputer.io";
+    const url = "https://solstice-vigil.vercel.app";
     try {
       if (navigator.share) { await navigator.share({ title: "Solstice Vigil", text, url }); return; }
     } catch { /* user cancelled or share unavailable — fall through to clipboard */ }

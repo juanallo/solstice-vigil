@@ -653,7 +653,7 @@ export default function SolsticeVigil() {
   }, [unlockAudio, transitionStatus]);
 
   const shareText = useCallback(async (text: string) => {
-    const url = "https://solstice-vigil-jalloron.zocomputer.io";
+    const url = "https://solstice-vigil.vercel.app";
     try {
       if (navigator.share) { await navigator.share({ title: "Solstice Vigil", text, url }); return; }
     } catch { /* user cancelled or share unavailable — fall through to clipboard */ }

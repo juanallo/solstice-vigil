@@ -68,7 +68,7 @@ test.describe("rare encounter", () => {
     expect(clipboardText).toMatch(/Cycle 20/i);
     expect(clipboardText).toMatch(/Clockmaker/i);
     expect(clipboardText).toMatch(/SOLSTICE VIGIL/i);
-    expect(clipboardText).toMatch(/solstice-vigil-jalloron\.zocomputer\.io/);
+    expect(clipboardText).toMatch(/solstice-vigil\.vercel\.app/);
   });
 
   test("repeat encounter uses alternate discovery and share copy", async ({ page, context }) => {

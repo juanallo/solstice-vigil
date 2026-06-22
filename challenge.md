@@ -18,7 +18,7 @@ What you can do in the game:
 - Turn on speech narration if you want the scene read aloud. Music ducks while it plays.
 - Try demo mode if you do not want to download the ~2 GB model. The full loop works with hand-written scenes.
 
-Play it here: [https://solstice-vigil-jalloron.zocomputer.io](https://solstice-vigil-jalloron.zocomputer.io)
+Play it here: [https://solstice-vigil.vercel.app/](https://solstice-vigil.vercel.app/)
 
 ## Video Demo
 
