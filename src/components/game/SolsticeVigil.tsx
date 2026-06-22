@@ -282,6 +282,7 @@ export default function SolsticeVigil() {
   const demoRef = useRef(false);
   const pendingAutoNarrationRef = useRef(false);
   const sceneRef = useRef<Scene | null>(null);
+  const statusRef = useRef(status);
   const { audioEnabled, toggleAudio, unlockAudio, duckMusic } = useGameAudio(status === "title");
   const {
     supported: speechSupported,
@@ -300,6 +301,10 @@ export default function SolsticeVigil() {
   }, [scene]);
 
   useEffect(() => {
+    statusRef.current = status;
+  }, [status]);
+
+  useEffect(() => {
     if (status !== "playing" || !scene?.narration || !speechSupported || !autoPlayEnabled) return;
     speak(scene.narration);
   }, [status, scene, speechSupported, autoPlayEnabled, speak]);
@@ -314,6 +319,10 @@ export default function SolsticeVigil() {
   }, []);
 
   const transitionScene = useCallback((next: Scene | null) => {
+    if (statusRef.current !== "playing") {
+      setScene(next);
+      return Promise.resolve();
+    }
     return withViewTransition(() => setScene(next));
   }, []);
 
@@ -594,6 +603,7 @@ export default function SolsticeVigil() {
       return;
     }
     if (next.pendingReveal) {
+      setScene(null);
       await transitionStatus("reveal");
       return;
     }
@@ -692,15 +702,17 @@ export default function SolsticeVigil() {
     setState(next);
     saveState(next);
     if (next.encounter.pendingDiscovery) {
+      await transitionScene(null);
       await transitionStatus("discovery");
       if (!scene && next.encounter.activeEncounterId) {
         await runTurn(next, { regenerateActive: true });
       }
       return;
     }
+    await transitionScene(null);
     await transitionStatus("playing");
     await runTurn(next);
-  }, [state, runTurn, unlockAudio, scene, transitionStatus]);
+  }, [state, runTurn, unlockAudio, scene, transitionStatus, transitionScene]);
 
   const continueFromDiscovery = useCallback(async () => {
     unlockAudio();
