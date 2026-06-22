@@ -121,10 +121,6 @@ body {
 .sv-panel {
   background: var(--sv-panel);
   border: 1px solid var(--sv-border);
-  box-shadow: 0 24px 80px rgba(0, 0, 0, 0.55);
-  backdrop-filter: blur(10px);
-  -webkit-backdrop-filter: blur(10px);
-  border-radius: 4px;
   padding: 2rem;
   width: 100%;
 }
@@ -297,7 +293,6 @@ body {
   letter-spacing: 0.08em;
   text-transform: uppercase;
   cursor: pointer;
-  border-radius: 3px;
   transition: border-color 300ms ease, box-shadow 300ms ease, transform 300ms ease, opacity 300ms ease;
 }
 
@@ -310,11 +305,6 @@ body {
   color: #fff7de;
   background: linear-gradient(135deg, #8b3f10, #d8a84b 48%, #23356f);
   border: 1px solid var(--sv-gold);
-  box-shadow: 0 4px 20px rgba(216, 168, 75, 0.2);
-}
-
-.sv-button-primary:hover {
-  box-shadow: 0 0 28px rgba(216, 168, 75, 0.35);
 }
 
 .sv-button-secondary {
@@ -330,7 +320,6 @@ body {
 
 .sv-button-secondary:hover {
   border-color: var(--sv-moon);
-  box-shadow: 0 0 20px rgba(86, 109, 202, 0.25);
 }
 
 .sv-link-button {
@@ -367,7 +356,6 @@ body {
 .sv-choice-button:hover:not(:disabled) {
   transform: translateY(-1px);
   border-color: var(--sv-gold-bright);
-  box-shadow: 0 0 24px rgba(216, 168, 75, 0.18);
 }
 
 .sv-choice-button:disabled {
@@ -383,8 +371,6 @@ body {
     radial-gradient(circle at top right, rgba(35, 53, 111, 0.18), transparent 34%),
     rgba(3, 8, 13, 0.82);
   border: 1px solid var(--sv-border);
-  box-shadow: 0 30px 80px rgba(0, 0, 0, 0.45);
-  border-radius: 4px;
   padding: 1.5rem;
   flex: 1;
   display: flex;
@@ -496,7 +482,6 @@ body {
   position: relative;
   background: rgba(3, 8, 13, 0.45);
   border: 1px solid rgba(216, 168, 75, 0.2);
-  border-radius: 3px;
   padding: 1.25rem 1.35rem;
   padding-top: 2.75rem;
   margin-bottom: 1.5rem;

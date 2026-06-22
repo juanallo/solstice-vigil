@@ -1,0 +1,155 @@
+/* Framed decoration system: notched corners */
+
+:root {
+  --sv-notch: 10px;
+  --sv-frame-border: 1px;
+  --sv-notch-clip: polygon(
+    var(--sv-notch) 0,
+    calc(100% - var(--sv-notch)) 0,
+    100% var(--sv-notch),
+    100% calc(100% - var(--sv-notch)),
+    calc(100% - var(--sv-notch)) 100%,
+    var(--sv-notch) 100%,
+    0 calc(100% - var(--sv-notch)),
+    0 var(--sv-notch)
+  );
+}
+
+/* Shared framed geometry */
+
+.sv-panel,
+.game-shell,
+.sv-narrative-card,
+.sv-button-primary,
+.sv-button-secondary,
+.sv-choice-button {
+  position: relative;
+  border-radius: 0;
+  clip-path: var(--sv-notch-clip);
+  isolation: isolate;
+}
+
+/* Fallback border (clip-path clips real borders) */
+
+@supports not (border-shape: shape(from 0 0, close)) {
+  .sv-panel,
+  .game-shell,
+  .sv-narrative-card,
+  .sv-button-primary,
+  .sv-button-secondary,
+  .sv-choice-button {
+    border: none;
+  }
+
+  .sv-panel::after,
+  .game-shell::after,
+  .sv-narrative-card::after,
+  .sv-button-primary::after,
+  .sv-button-secondary::after,
+  .sv-choice-button::after {
+    content: "";
+    position: absolute;
+    inset: 0;
+    z-index: 2;
+    pointer-events: none;
+    box-shadow: inset 0 0 0 var(--sv-frame-border) var(--sv-framed-border-color, var(--sv-border));
+  }
+
+  .sv-button-secondary::after {
+    box-shadow: inset 0 0 0 var(--sv-frame-border) rgba(183, 196, 214, 0.35);
+  }
+}
+
+/* border-shape progressive enhancement */
+
+@supports (border-shape: shape(from 0 0, close)) {
+  .sv-panel,
+  .game-shell,
+  .sv-narrative-card,
+  .sv-button-primary,
+  .sv-button-secondary,
+  .sv-choice-button {
+    clip-path: none;
+    border-shape: shape(
+      from var(--sv-notch) 0,
+      hline to calc(100% - var(--sv-notch)),
+      line to 100% var(--sv-notch),
+      vline to calc(100% - var(--sv-notch)),
+      line to calc(100% - var(--sv-notch)) 100%,
+      hline to var(--sv-notch),
+      line to 0 calc(100% - var(--sv-notch)),
+      vline to var(--sv-notch),
+      line to var(--sv-notch) 0,
+      close
+    );
+  }
+
+  .sv-panel::after,
+  .game-shell::after,
+  .sv-narrative-card::after,
+  .sv-button-primary::after,
+  .sv-button-secondary::after,
+  .sv-choice-button::after {
+    content: none;
+  }
+}
+
+/* Double-line frame for main panels */
+
+.sv-panel,
+.game-shell {
+  box-shadow:
+    inset 0 0 0 1px rgba(216, 168, 75, 0.22),
+    inset 0 0 0 4px rgba(216, 168, 75, 0.08),
+    inset 0 1px 0 rgba(255, 235, 190, 0.06),
+    inset 0 -1px 0 rgba(0, 0, 0, 0.35),
+    0 24px 80px rgba(0, 0, 0, 0.55);
+}
+
+/* Inset stamped feel for cards and buttons */
+
+.sv-narrative-card,
+.sv-button-primary,
+.sv-button-secondary,
+.sv-choice-button {
+  box-shadow:
+    inset 0 1px 0 rgba(255, 235, 190, 0.06),
+    inset 0 -1px 0 rgba(0, 0, 0, 0.35);
+}
+
+.sv-button-primary {
+  box-shadow:
+    inset 0 1px 0 rgba(255, 235, 190, 0.08),
+    inset 0 -1px 0 rgba(0, 0, 0, 0.35),
+    0 4px 20px rgba(216, 168, 75, 0.2);
+}
+
+.sv-button-primary:hover {
+  box-shadow:
+    inset 0 1px 0 rgba(255, 235, 190, 0.08),
+    inset 0 -1px 0 rgba(0, 0, 0, 0.35),
+    0 0 28px rgba(216, 168, 75, 0.35);
+}
+
+.sv-button-secondary:hover {
+  box-shadow:
+    inset 0 1px 0 rgba(255, 235, 190, 0.06),
+    inset 0 -1px 0 rgba(0, 0, 0, 0.35),
+    0 0 20px rgba(86, 109, 202, 0.25);
+}
+
+.sv-choice-button:hover:not(:disabled) {
+  box-shadow:
+    inset 0 1px 0 rgba(255, 235, 190, 0.06),
+    inset 0 -1px 0 rgba(0, 0, 0, 0.35),
+    0 0 24px rgba(216, 168, 75, 0.18);
+}
+
+.game-shell {
+  box-shadow:
+    inset 0 0 0 1px rgba(216, 168, 75, 0.22),
+    inset 0 0 0 4px rgba(216, 168, 75, 0.08),
+    inset 0 1px 0 rgba(255, 235, 190, 0.06),
+    inset 0 -1px 0 rgba(0, 0, 0, 0.35),
+    0 30px 80px rgba(0, 0, 0, 0.45);
+}
