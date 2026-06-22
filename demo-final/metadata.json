@@ -1,0 +1,486 @@
+{
+  "viewport": {
+    "width": 1800,
+    "height": 1236
+  },
+  "frames": [
+    {
+      "file": "frame-000.png",
+      "stepName": "title-screen",
+      "clickTarget": {
+        "role": "Try demo mode"
+      },
+      "state": {
+        "title": "SOLSTICE VIGIL",
+        "text": "hold the balance · the longest day, the endless turn",
+        "h2text": "",
+        "day": "",
+        "balance": "",
+        "detail": "",
+        "warning": "",
+        "meterLeft": ""
+      },
+      "btnPositions": [
+        {
+          "text": "☀Begin the vigil",
+          "testId": "",
+          "x": 900,
+          "y": 883.2421875
+        },
+        {
+          "text": "Try demo mode (no AI, no download)",
+          "testId": "",
+          "x": 900,
+          "y": 933.03125
+        }
+      ]
+    },
+    {
+      "file": "frame-001.png",
+      "stepName": "first-scene",
+      "clickTarget": {
+        "testId": "choice-dice"
+      },
+      "state": {
+        "title": "",
+        "text": "A traveler sits beneath a tree that casts no moving shadow. \"The road east is quick,\" she says, \"but it takes more than it gives. The road west is slow, and asks little.\" She holds out a waterskin in the endless noon.",
+        "h2text": "",
+        "day": "Day 1",
+        "balance": "",
+        "detail": "",
+        "warning": "",
+        "meterLeft": "50%"
+      },
+      "btnPositions": [
+        {
+          "text": "Roll the dice to Take the quick east road, pay the price",
+          "testId": "choice-dice",
+          "x": 900,
+          "y": 1027.2421875
+        },
+        {
+          "text": "Follow the slow west road",
+          "testId": "",
+          "x": 900,
+          "y": 1090.0234375
+        },
+        {
+          "text": "Share her water and rest",
+          "testId": "",
+          "x": 900,
+          "y": 1152.8046875
+        }
+      ]
+    },
+    {
+      "file": "frame-002.png",
+      "stepName": "dice-roll",
+      "clickTarget": null,
+      "state": {
+        "title": "",
+        "text": "A traveler sits beneath a tree that casts no moving shadow. \"The road east is quick,\" she says, \"but it takes more than it gives. The road west is slow, and asks little.\" She holds out a waterskin in the endless noon.",
+        "h2text": "",
+        "day": "Day 1",
+        "balance": "",
+        "detail": "",
+        "warning": "",
+        "meterLeft": "50%"
+      },
+      "btnPositions": [
+        {
+          "text": "restart",
+          "testId": "",
+          "x": 1320.9453125,
+          "y": 160.78125
+        }
+      ]
+    },
+    {
+      "file": "frame-003.png",
+      "stepName": "encounter-discovery",
+      "clickTarget": {
+        "testId": "encounter-continue"
+      },
+      "state": {
+        "title": "",
+        "text": "Cycle 0",
+        "h2text": "First encounter with The Clockmaker.",
+        "day": "",
+        "balance": "",
+        "detail": "",
+        "warning": "",
+        "meterLeft": ""
+      },
+      "btnPositions": [
+        {
+          "text": "Share this moment",
+          "testId": "encounter-share",
+          "x": 792.421875,
+          "y": 844.3828125
+        },
+        {
+          "text": "Continue the vigil",
+          "testId": "encounter-continue",
+          "x": 1009.6953125,
+          "y": 844.3828125
+        }
+      ]
+    },
+    {
+      "file": "frame-004.png",
+      "stepName": "encounter-scene",
+      "clickTarget": {
+        "choiceIdx": 0
+      },
+      "state": {
+        "title": "",
+        "text": "A workshop appears where no road should be. The Clockmaker hunches over gears that turn without cause, candlelight pooling in the hollows of his face. \"One second from your vigil,\" he offers, \"for one truth you have not earned.\"",
+        "h2text": "",
+        "day": "Day 1",
+        "balance": "",
+        "detail": "",
+        "warning": "",
+        "meterLeft": "28.5%"
+      },
+      "btnPositions": [
+        {
+          "text": "Refuse the bargain",
+          "testId": "",
+          "x": 900,
+          "y": 1027.2421875
+        },
+        {
+          "text": "Roll the dice to Offer a moment of your vigil",
+          "testId": "choice-dice",
+          "x": 900,
+          "y": 1090.0234375
+        },
+        {
+          "text": "Ask what he mends",
+          "testId": "",
+          "x": 900,
+          "y": 1152.8046875
+        }
+      ]
+    },
+    {
+      "file": "frame-005.png",
+      "stepName": "balance-0",
+      "clickTarget": {
+        "choiceIdx": 2
+      },
+      "state": {
+        "title": "",
+        "text": "A brazier burns without fuel in the middle of the road, throwing heat that wants nothing but more heat. Voices in the flame promise swift power if you feed it. The noon is glad, and would be gladder still. It is so easy to burn.",
+        "h2text": "",
+        "day": "Day 2",
+        "balance": "",
+        "detail": "",
+        "warning": "",
+        "meterLeft": "28.5%"
+      },
+      "btnPositions": [
+        {
+          "text": "Roll the dice to Feed the brazier, embrace the blaze",
+          "testId": "choice-dice",
+          "x": 900,
+          "y": 1026.3710632324219
+        },
+        {
+          "text": "Stoke it further",
+          "testId": "",
+          "x": 900,
+          "y": 1090.0234375
+        },
+        {
+          "text": "Walk past the fire",
+          "testId": "",
+          "x": 900,
+          "y": 1152.8046875
+        }
+      ]
+    },
+    {
+      "file": "frame-006.png",
+      "stepName": "balance-1",
+      "clickTarget": {
+        "choiceIdx": 2
+      },
+      "state": {
+        "title": "",
+        "text": "A pale wanderer beckons from a doorway lit by a single steady candle. \"Come in,\" she says. \"Warmth costs a little of your night. Or stay in the cold, and keep it all.\" The Hush presses at the windows.",
+        "h2text": "",
+        "day": "Day 2",
+        "balance": "",
+        "detail": "",
+        "warning": "",
+        "meterLeft": "33.5%"
+      },
+      "btnPositions": [
+        {
+          "text": "Roll the dice to Enter, surrender some of the night",
+          "testId": "choice-dice",
+          "x": 900,
+          "y": 1027.2421875
+        },
+        {
+          "text": "Stay out in the deep cold",
+          "testId": "",
+          "x": 900,
+          "y": 1090.0234375
+        },
+        {
+          "text": "Bargain at the threshold",
+          "testId": "",
+          "x": 900,
+          "y": 1151.9112548828125
+        }
+      ]
+    },
+    {
+      "file": "frame-007.png",
+      "stepName": "identity-reveal",
+      "clickTarget": {
+        "testId": "identity-continue"
+      },
+      "state": {
+        "title": "",
+        "text": "Cycle 2",
+        "h2text": "You have become a Twilight Pilgrim.",
+        "day": "",
+        "balance": "",
+        "detail": "",
+        "warning": "",
+        "meterLeft": ""
+      },
+      "btnPositions": [
+        {
+          "text": "Share this moment",
+          "testId": "",
+          "x": 792.421875,
+          "y": 829.3046875
+        },
+        {
+          "text": "Continue the vigil",
+          "testId": "identity-continue",
+          "x": 1009.6953125,
+          "y": 829.3046875
+        }
+      ]
+    },
+    {
+      "file": "frame-008.png",
+      "stepName": "identity-badge",
+      "clickTarget": {
+        "choiceIdx": 0
+      },
+      "state": {
+        "title": "",
+        "text": "A brazier burns without fuel in the middle of the road, throwing heat that wants nothing but more heat. Voices in the flame promise swift power if you feed it. The noon is glad, and would be gladder still. It is so easy to burn.",
+        "h2text": "",
+        "day": "Day 3",
+        "balance": "",
+        "detail": "",
+        "warning": "",
+        "meterLeft": "37.5%"
+      },
+      "btnPositions": [
+        {
+          "text": "Roll the dice to Feed the brazier, embrace the blaze",
+          "testId": "choice-dice",
+          "x": 900,
+          "y": 1027.2421875
+        },
+        {
+          "text": "Stoke it further",
+          "testId": "",
+          "x": 900,
+          "y": 1090.0234375
+        },
+        {
+          "text": "Walk past the fire",
+          "testId": "",
+          "x": 900,
+          "y": 1152.8046875
+        }
+      ]
+    },
+    {
+      "file": "frame-009.png",
+      "stepName": "push-0",
+      "clickTarget": {
+        "choiceIdx": 0
+      },
+      "state": {
+        "title": "",
+        "text": "A brazier burns without fuel in the middle of the road, throwing heat that wants nothing but more heat. Voices in the flame promise swift power if you feed it. The noon is glad, and would be gladder still. It is so easy to burn.",
+        "h2text": "",
+        "day": "Day 3",
+        "balance": "",
+        "detail": "",
+        "warning": "",
+        "meterLeft": "37.5%"
+      },
+      "btnPositions": [
+        {
+          "text": "Roll the dice to Feed the brazier, embrace the blaze",
+          "testId": "choice-dice",
+          "x": 900,
+          "y": 1027.2421875
+        },
+        {
+          "text": "Stoke it further",
+          "testId": "",
+          "x": 900,
+          "y": 1090.0234375
+        },
+        {
+          "text": "Walk past the fire",
+          "testId": "",
+          "x": 900,
+          "y": 1152.8046875
+        }
+      ]
+    },
+    {
+      "file": "frame-010.png",
+      "stepName": "push-1",
+      "clickTarget": {
+        "choiceIdx": 0
+      },
+      "state": {
+        "title": "",
+        "text": "A pale wanderer beckons from a doorway lit by a single steady candle. \"Come in,\" she says. \"Warmth costs a little of your night. Or stay in the cold, and keep it all.\" The Hush presses at the windows.",
+        "h2text": "",
+        "day": "Day 3",
+        "balance": "",
+        "detail": "",
+        "warning": "",
+        "meterLeft": "23.5%"
+      },
+      "btnPositions": [
+        {
+          "text": "Roll the dice to Enter, surrender some of the night",
+          "testId": "choice-dice",
+          "x": 900,
+          "y": 1027.22705078125
+        },
+        {
+          "text": "Stay out in the deep cold",
+          "testId": "",
+          "x": 900,
+          "y": 1090.0234375
+        },
+        {
+          "text": "Bargain at the threshold",
+          "testId": "",
+          "x": 900,
+          "y": 1152.8046875
+        }
+      ]
+    },
+    {
+      "file": "frame-011.png",
+      "stepName": "push-2",
+      "clickTarget": {
+        "choiceIdx": 0
+      },
+      "state": {
+        "title": "",
+        "text": "A bridge of frozen light spans a chasm where the sun has stopped sinking. A gatekeeper stands at its center, wreathed in halted flame, neither welcoming nor forbidding. \"Cross, or turn back,\" it says, and means both. The heat of noon presse",
+        "h2text": "",
+        "day": "Day 4",
+        "balance": "",
+        "detail": "",
+        "warning": "the light burns too bright…",
+        "meterLeft": "7.5%"
+      },
+      "btnPositions": [
+        {
+          "text": "Roll the dice to Stride boldly into the unsetting light",
+          "testId": "choice-dice",
+          "x": 900,
+          "y": 1027.2421875
+        },
+        {
+          "text": "Step aside into the waiting cool",
+          "testId": "",
+          "x": 900,
+          "y": 1090.0234375
+        },
+        {
+          "text": "Stand a while at the threshold",
+          "testId": "",
+          "x": 900,
+          "y": 1152.8046875
+        }
+      ]
+    },
+    {
+      "file": "frame-012.png",
+      "stepName": "game-over",
+      "clickTarget": {
+        "role": "Begin again"
+      },
+      "state": {
+        "title": "",
+        "text": "The Long Day claims you. The sun will not set, and you wander into the endless light until you are no more. The wheel has stopped.",
+        "h2text": "the vigil ends",
+        "day": "",
+        "balance": "",
+        "detail": "",
+        "warning": "",
+        "meterLeft": ""
+      },
+      "btnPositions": [
+        {
+          "text": "Share your vigil",
+          "testId": "",
+          "x": 822.9921875,
+          "y": 858.4765625
+        },
+        {
+          "text": "Begin again",
+          "testId": "",
+          "x": 999.2578125,
+          "y": 858.4765625
+        }
+      ]
+    },
+    {
+      "file": "frame-013.png",
+      "stepName": "closing",
+      "clickTarget": null,
+      "state": {
+        "title": "",
+        "text": "A bridge of frozen light spans a chasm where the sun has stopped sinking. A gatekeeper stands at its center, wreathed in halted flame, neither welcoming nor forbidding. \"Cross, or turn back,\" it says, and means both. The heat of noon presse",
+        "h2text": "",
+        "day": "Day 1",
+        "balance": "",
+        "detail": "",
+        "warning": "",
+        "meterLeft": "50%"
+      },
+      "btnPositions": [
+        {
+          "text": "Roll the dice to Stride boldly into the unsetting light",
+          "testId": "choice-dice",
+          "x": 900,
+          "y": 990.8515625
+        },
+        {
+          "text": "Step aside into the waiting cool",
+          "testId": "",
+          "x": 900,
+          "y": 1053.6328125
+        },
+        {
+          "text": "Stand a while at the threshold",
+          "testId": "",
+          "x": 900,
+          "y": 1116.4140625
+        }
+      ]
+    }
+  ]
+}

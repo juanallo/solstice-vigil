@@ -12,7 +12,13 @@
     "test:e2e": "playwright test --project=e2e",
     "test:e2e:ui": "playwright test --ui",
     "test:e2e:report": "playwright show-report",
-    "generate:d20": "node scripts/generate-d20-faces.mjs"
+    "generate:d20": "node scripts/generate-d20-faces.mjs",
+    "demo:final": "node demo-final/run.mjs",
+    "demo:final:capture": "node demo-final/demo.mjs",
+    "demo:final:render": "node demo-final/render.mjs",
+    "demo:final:mobile": "node demo-final/run-mobile.mjs",
+    "demo:final:mobile:capture": "node demo-final/demo-mobile.mjs",
+    "demo:final:mobile:render": "node demo-final/render-mobile.mjs"
   },
   "keywords": [],
   "author": "",
